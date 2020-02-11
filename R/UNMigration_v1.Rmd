@@ -1,0 +1,178 @@
+---
+title: "UN Migration Data"
+author: "Winnie Hu"
+date: "2/9/2020"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    code_folding: show
+always_allow_html: yes
+autosize: True
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(igraph)
+library(formattable)
+library(ggplot2)
+library(DT)
+```
+
+## Load Data
+
+```{r q1, echo=TRUE}
+setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration")
+nodes <- read.csv("CountryNodes.csv", header=T, as.is=T)
+links <- read.csv("EdgeList.csv", header=T, as.is=T)
+```
+
+## Examine Data
+
+```{r q2, echo=FALSE}
+head(nodes)
+head(links)
+no_country <- nrow(nodes)
+no_region <- length(unique(nodes$Region))
+unique_region <- unique(nodes$Region)
+no_corridors <- nrow(links)
+```
+
+The CountryNodes.csv file contains `r format(no_country)` countries and/or regions in the world. These countries are grouped into `r format(no_region)` regions, which are `r format(unique_region[-22])`, and `r format(unique_region[22])`. There are `r format(comma(no_corridors, digits = 0))` migration corridors in the EdgeList.csv file.
+
+## Exploratory Data Analysis
+
+### 1. Top migration corridors 
+
+```{r q3, echo=FALSE}
+df_desc <- links[order(-links$Weight),]
+df_top_100 <- df_desc[1:100, ]
+datatable(df_top_100)
+```
+
+### 2. Top migration destinations (coutries)
+
+```{r q4, echo=FALSE}
+top_dest <- aggregate(links$Weight, by=list(Destination = links$Destination), FUN = sum)
+top_dest_desc <- top_dest[order(-top_dest$x),]
+#top_20_dest <- top_dest_desc[1:20,]
+datatable(top_dest_desc)
+```
+
+## Visualization 
+
+### 1.1 All links
+
+```{r q5, echo=FALSE}
+# Create igraph object
+net_all <- graph_from_data_frame(d=links, vertices=nodes, directed = F)
+
+# set attributes parameters
+V(net_all)$size <- 8
+V(net_all)$frame.color <- "white"
+V(net_all)$color <- "lightblue"
+V(net_all)$label.color <- "grey"
+V(net_all)$label <- nodes$Country
+V(net_all)$label.dist <- 1
+E(net_all)$arrow.size <- 0.1
+E(net_all)$width <- (edge_attr(net_all)$Weight)/1000000
+
+# Set layout
+graph_attr(net_all, "layout") <- layout_with_lgl
+
+# Plot
+plot(net_all)
+```
+
+### 1.2 All links with modifications
+
+```{r q6, echo=FALSE}
+# Create igraph object
+net_all2 <- graph_from_data_frame(d=links, vertices=nodes, directed = F)
+
+# set attributes parameters
+V(net_all)$frame.color <- "white"
+V(net_all)$color <- "lightblue"
+V(net_all)$label <- NA
+E(net_all)$width <- (edge_attr(net_all)$Weight)/100000000
+
+# Set node size based on migration total individuals
+V(net_all)$size <- (top_dest$x)/1000000
+
+# Set layout
+graph_attr(net_all, "layout") <- layout_in_circle
+
+# Plot
+plot(net_all)
+```
+
+
+
+### 2.1 Only top 20 corridors
+
+```{r q7, echo=FALSE}
+# subset 
+df_top_20_corridors <- df_desc[1:20, ]
+
+# Create igraph object
+net_all_20 <- graph_from_data_frame(d=df_top_20_corridors, vertices=nodes, directed = F)
+
+# set attributes parameters
+V(net_all_20)$frame.color <- "white"
+V(net_all_20)$color <- "lightblue"
+V(net_all_20)$label <- NA
+E(net_all_20)$width <- (edge_attr(net_all_20)$Weight)/1000000
+
+# Set node size based on migration total individuals
+V(net_all_20)$size <- (top_dest$x)/1000000
+
+# Set layout
+graph_attr(net_all_20, "layout") <- layout_in_circle
+
+# Plot
+plot(net_all_20)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
