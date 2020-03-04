@@ -1,0 +1,243 @@
+---
+title: "UN Migration Data - Version 2"
+author: "Winnie Hu"
+date: "2/19/2020"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    code_folding: show
+always_allow_html: yes
+autosize: True
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(igraph)
+library(formattable)
+library(ggplot2)
+library(DT)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(tibble)
+library(networkD3)
+library(visNetwork)
+```
+
+## Load Data
+
+```{r q1, echo=TRUE}
+setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration")
+nodes <- read.csv("CountryNodes.csv", header=T, as.is=T)
+links <- read.csv("EdgeList.csv", header=T, as.is=T)
+```
+
+## Examine Data
+
+### i) Nodes and Links
+
+```{r q2, echo=FALSE}
+head(nodes)
+head(links)
+no_country <- nrow(nodes)
+no_region <- length(unique(nodes$Region))
+unique_region <- unique(nodes$Region)
+no_corridors <- nrow(links)
+min_weight <- min(links$Weight)
+max_weight <- max(links$Weight)
+
+# Check whether country with special symbols in its name has been loaded successfully 
+special_symbol <- nodes[170:175,]
+special_symbol
+```
+The CountryNodes.csv file contains `r format(no_country)` countries and/or regions in the world. These countries are grouped into `r format(no_region)` regions, which are `r format(unique_region[-22])`, and `r format(unique_region[22])`. There are `r format(comma(no_corridors, digits = 0))` migration corridors in the EdgeList.csv file. The minimum weight is `r format(min_weight)`. The maximum weight is `r format(max_weight)`. 
+
+### ii) Percentile
+
+```{r q_percentile, echo=FALSE}
+df_Weight_sort <- links[order(-links$Weight),]
+quantilevalues <- quantile(df_Weight_sort$Weight, c(0.75, 0.80,  0.85, 0.95, 0.96, 0.97, 0.98, 0.99, 1))
+quantilevalues
+one_pct <- round(nrow(links)*0.01, 0)
+```
+
+The percentile values show that approximately 80% of the links are unweighted. Approximately 1 percent of the total links, equivalent to `r format(one_pct)` links, have migration flow greater than 79,680.  
+
+### iii) Top migration corridors 
+
+```{r q3, echo=FALSE}
+df_desc <- links[order(-links$Weight),]
+df_top_100 <- df_desc[1:100, ]
+datatable(df_top_100)
+```
+
+### iv) Top migration destinations (coutries)
+
+```{r q4, echo=FALSE}
+top_dest <- aggregate(links$Weight, by=list(Destination = links$Destination), FUN = sum)
+top_dest_desc <- top_dest[order(-top_dest$x),]
+#top_20_dest <- top_dest_desc[1:20,]
+datatable(top_dest_desc)
+```
+
+### v) Density
+
+```{r q_dencity, echo=TRUE}
+# remove links with 0 weight
+links_wonly <-links[!(links$Weight==0),]
+head(links_wonly)
+
+# Create an igraph object
+net <- graph_from_data_frame(d=links_wonly, vertices=nodes, directed=T) 
+
+# directed network
+no_edge <- ecount(net)
+no_node <- vcount(net)
+density_directed <- ecount(net)/(vcount(net)*(vcount(net)-1))
+```
+
+Density is the proportion of present edges from all possible edges in the network. Bsed on the density formular ecount(net)/(vcount(net)*(vcount(net)-1)) and knowing there are `r format(no_node)` nodes and `r format(no_edge)` edges, we derived that the network density for the migration dataset is `r format(density_directed)`. 
+
+### vi) Reciprocity
+
+```{r q_reciprocity, echo=TRUE}
+# directed network
+reciprocity_directed <- reciprocity(net)
+```
+
+Reciprocity is a measure of the likelihood of vertices to be mutually linked in a directed network. The reciprocity of the class network is `r format(reciprocity_directed)`.
+
+## Visualization 
+
+### 1.1 Explore different layouts
+
+```{r q_alllinks, echo=TRUE}
+# plot four figures - 2 rows, 2 columns
+par(mfrow=c(2,2), mai=c(0.1, 0.1, 0.1, 0.1)) 
+
+# make 4 subplots
+# fr
+plot(net, vertex.size=10, vertex.color="lightblue", edge.color="gray70", vertex.frame.color="SkyBlue2", edge.arrow.size=0.1, edge.width = (edge_attr(net)$weight)/1000000, vertex.label=NA, layout = layout_with_fr, main = "layout_with_fr")
+# kk
+plot(net, vertex.size=10, vertex.color="lightblue", edge.color="gray70", vertex.frame.color="SkyBlue2", edge.arrow.size=0.1, edge.width = (edge_attr(net)$weight)/1000000, vertex.label=NA, layout = layout_with_kk, main="layout_with_kk")
+# circle
+plot(net, vertex.size=10, vertex.color="lightblue", edge.color="gray70", vertex.frame.color="SkyBlue2", edge.arrow.size=0.1, edge.width = (edge_attr(net)$weight)/100000000, vertex.label=NA, layout = layout_in_circle, main="layout_in_circle")
+#lgl
+plot(net, vertex.size=10, vertex.color="lightblue", edge.color="gray70", vertex.frame.color="SkyBlue2", edge.arrow.size=0.1, edge.width = (edge_attr(net)$weight)/1000000, vertex.label=NA, layout = layout_with_lgl, main="layout_with_lgl")
+```
+
+### 1.2 Smart Questions
+##### i) Degree analysis: What are the countries that are more open to migration? 
+
+```{r q_degree, echo=TRUE}
+# rescale the range of node weights to range of (0, 1)
+links_wonly$Weight_rescale <- rescale(x = links_wonly$Weight, to = c(0, 1), from = range(x = links_wonly$Weight, na.rm = TRUE, finite = TRUE))
+head(links_wonly)
+
+#create igraph object
+net_degree <- graph_from_data_frame(d=links_wonly, vertices=nodes, directed=T)
+
+# get degree
+deg <- degree(net_degree, mode='all')
+deg_sort <- sort(x = deg, decreasing=TRUE)
+col_deg <- data.frame(deg_sort) # covert vector to a dataframe
+new_col_deg <- col_deg %>% rownames_to_column("Country") # convert rownames to a column refrence:https://rpubs.com/tuyenhavan/290871
+colnames(new_col_deg) <- c("Country", "Degree") # reset column names
+df_merge <- merge(nodes, new_col_deg) # merge two df based on common column "Country"
+new_nodes <- df_merge[order(df_merge$Degree),] # sort the new df based on Degree in descending order
+head(new_nodes, 10)
+tail(new_nodes, 10)
+
+###########
+## Plot  ##
+###########
+# create new igraph object
+net_degree2 <- graph_from_data_frame(d=links_wonly, vertices=new_nodes, directed=T)
+
+# vertex color based on degree level
+vcol <- rep("snow2", vcount(net_degree2))     #deebf7 # assigned third degree very light blue to top 101 - 232 countries
+vcol[223:232] <- "skyblue1"                   #3182bd  #assign first degree dark blue to top ten countries
+vcol[123:222] <- "slategray1"                 #9ecae1 #assign second degree light blue to top 11-100 countries
+V(net_degree2)$color <- vcol
+
+# vertex frame color
+V(net_degree2)$frame.color <- "black"
+
+# vertex label and size
+V(net_degree2)$label <- new_nodes$Country
+V(net_degree2)$label.cex <- 0.5
+V(net_degree2)$label.color <- "white"
+
+# Vertex size
+V(net_degree2)$size <- round((new_nodes$Degree)/16, 2)
+
+# edge color and size
+E(net_degree2)$width <- links_wonly$Weight_rescale
+E(net_degree2)$color <- "gray80"
+E(net_degree2)$arrow.size <- .2
+#E(net_degree)$arrow.mode <- 1
+
+# layout
+l <- layout_with_fr(net_degree2)
+
+# plot
+par(mai=c(0,0,0.1,0.1))
+plot(net_degree2, layout = l, vertex.label = ifelse(degree(net_degree2) > 300, V(net_degree2)$label, NA), main="Network Graph based on Node Degree")
+#legend("topleft", legend=c("a", "b", "c"), col=c("snow2", "skyblue1", "slategray1"), lty=1:2, cex=0.8)
+```
+
+
+```{r q_network3D, echo=TRUE}
+nodes_vis <- new_nodes
+colnames(nodes_vis) <- c("id", "group", "Degree")
+head(nodes_vis)
+
+edges_vis <- links_wonly[, c("Destination", "Origin", "Weight_rescale")]
+colnames(edges_vis) <- c("to", "from", "weight")
+head(edges_vis)
+
+visNetwork(nodes_vis, edges_vis) %>% 
+  visIgraphLayout(layout = "layout_with_fr")  %>% 
+  visLegend()
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
