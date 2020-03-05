@@ -1,0 +1,377 @@
+---
+title: "UN Migration Data - Version 3"
+author: "Winnie Hu"
+date: "3/4/2020"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    code_folding: show
+always_allow_html: yes
+autosize: True
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(igraph)
+library(formattable)
+library(ggplot2)
+library(DT)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(tibble)
+library(networkD3)
+library(visNetwork)
+```
+
+# Plot selective countries
+
+## Load Data
+
+```{r q1, echo=TRUE}
+setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration")
+nodes <- read.csv("CountryNodes_InfluenzaSelectiveCountries.csv", header=T, as.is=T)
+links <- read.csv("EdgeList_SelectiveCountries.csv", header=T, as.is=T)
+```
+
+## Examine Data
+
+### i) Nodes and Links
+
+```{r q2, echo=FALSE}
+head(nodes)
+head(links)
+
+no_country <- nrow(nodes)
+no_region <- length(unique(nodes$Region))
+unique_region <- unique(nodes$Region)
+no_corridors <- nrow(links)
+```
+
+## Plot
+
+### i) 2005 Data
+
+```{r q_plot_selective_2005, echo=TRUE}
+# select columns for the period between 2000 and 2005
+columnsfor2005 <- c("Destination", "Origin", "increase_rate_2000_2005")
+links_2005 <- links[columnsfor2005]
+
+# remove links with 0 weight and negative weight
+links_2005_wonly <-links_2005[!(links_2005$increase_rate_2000_2005 == 0),]
+links_2005_wonly <-links_2005_wonly[!(links_2005_wonly$increase_rate_2000_2005 < 0),]
+head(links_2005_wonly)
+
+# Create an igraph object
+net_2005 <- graph_from_data_frame(d=links_2005_wonly, vertices=nodes, directed=T) 
+```
+
+```{r q_plot_2005_2, echo=TRUE}
+# plot four figures - 2 rows, 2 columns
+par(mfrow=c(2,2), mai=c(0.1, 0.1, 0.1, 0.1)) 
+
+V(net_2005)$size <- V(net_2005)$Influenza2005/2500
+V(net_2005)$color <- "lightblue"
+V(net_2005)$frame.color <- "SkyBlue2"
+V(net_2005)$label <- nodes$Country # why this doesn't work? V(net_2005)$label <- V(net_2010)$Country
+E(net_2005)$color <- "gray70"
+E(net_2005)$arrow.size <- 0.1
+E(net_2005)$width <- (E(net_2005)$increase_rate_2000_2005)/80
+
+
+# make 4 subplots
+# fr
+plot(net_2005, layout = layout_with_fr, main = "layout_with_fr")
+
+# kk
+plot(net_2005, layout = layout_with_kk, main="layout_with_kk")
+
+# circle
+plot(net_2005, layout = layout_in_circle, main="layout_in_circle")
+
+#lgl
+plot(net_2005, layout = layout_with_lgl, main="layout_with_lgl")
+
+title("Year 2005",cex.main=2, col.main="Black", adj = 1, line = -12.5)
+```
+
+### ii) 2010 Data
+
+```{r q_plot_selective_2010, echo=TRUE}
+# select columns for the period between 2005 and 2010
+columnsfor2010 <- c("Destination", "Origin", "increase_rate_2005_2010")
+links_2010 <- links[columnsfor2010]
+
+# remove links with 0 weight and negative weight
+links_2010_wonly <-links_2010[!(links_2010$increase_rate_2005_2010 == 0),]
+links_2010_wonly <-links_2010_wonly[!(links_2010_wonly$increase_rate_2005_2010 < 0),]
+
+# Create an igraph object
+net_2010 <- graph_from_data_frame(d=links_2010_wonly, vertices=nodes, directed=T) 
+```
+
+```{r q_plot_2010_2, echo=TRUE}
+# plot four figures - 2 rows, 2 columns
+par(mfrow=c(2,2), mai=c(0.1, 0.1, 0.1, 0.1)) 
+
+V(net_2010)$size <- V(net_2010)$Influenza2010/2500
+V(net_2010)$color <- "lightblue"
+V(net_2010)$frame.color <- "SkyBlue2"
+V(net_2010)$label <- nodes$Country # why this doesn't work? V(net_2010)$label <- V(net_2010)$Country
+E(net_2010)$color <- "gray70"
+E(net_2010)$arrow.size <- 0.1
+E(net_2010)$width <- (E(net_2010)$increase_rate_2005_2010)/80
+
+
+# make 4 subplots
+# fr
+plot(net_2010, layout = layout_with_fr, main = "layout_with_fr")
+
+# kk
+plot(net_2010, layout = layout_with_kk, main="layout_with_kk")
+
+# circle
+plot(net_2010, layout = layout_in_circle, main="layout_in_circle")
+
+#lgl
+plot(net_2010, layout = layout_with_lgl, main="layout_with_lgl")
+
+title("Year 2010",cex.main=2, col.main="Black", adj = 1, line = -12)
+```
+
+### iii) 2015 Data
+
+```{r q_plot_selective_2015, echo=TRUE}
+# select columns for the period between 2005 and 2010
+columnsfor2015 <- c("Destination", "Origin", "increase_rate_2010_2015")
+links_2015 <- links[columnsfor2015]
+
+# remove links with 0 weight and negative weight
+links_2015_wonly <-links_2015[!(links_2015$increase_rate_2010_2015 == 0),]
+links_2015_wonly <-links_2015_wonly[!(links_2015_wonly$increase_rate_2010_2015 < 0),]
+
+# Create an igraph object
+net_2015 <- graph_from_data_frame(d=links_2015_wonly, vertices=nodes, directed=T) 
+```
+
+```{r q_plot_2015_2, echo=TRUE}
+# plot four figures - 2 rows, 2 columns
+par(mfrow=c(2,2), mai=c(0.1, 0.1, 0.1, 0.1)) 
+
+V(net_2015)$size <- V(net_2015)$Influenza2015/2500  # changed the denominator from 400 to 1000
+V(net_2015)$color <- "lightblue"
+V(net_2015)$frame.color <- "SkyBlue2"
+V(net_2015)$label <- nodes$Country 
+E(net_2015)$color <- "gray70"
+E(net_2015)$arrow.size <- 0.1
+E(net_2015)$width <- (E(net_2015)$increase_rate_2010_2015)/80
+
+
+# make 4 subplots
+# fr
+plot(net_2015, layout = layout_with_fr, main = "layout_with_fr")
+
+# kk
+plot(net_2015, layout = layout_with_kk, main="layout_with_kk")
+
+# circle
+plot(net_2015, layout = layout_in_circle, main="layout_in_circle")
+
+#lgl
+plot(net_2015, layout = layout_with_lgl, main="layout_with_lgl")
+
+title("Year 2015",cex.main=2, col.main="Black", adj = 1, line = -12)
+```
+
+### iv) 2019 Data
+
+```{r q_plot_selective_2019, echo=TRUE}
+# select columns for the period between 2005 and 2010
+columnsfor2019 <- c("Destination", "Origin", "increase_rate_2015_2019")
+links_2019 <- links[columnsfor2019]
+
+# remove links with 0 weight and negative weight
+links_2019_wonly <-links_2019[!(links_2019$increase_rate_2015_2019 == 0),]
+links_2019_wonly <-links_2019_wonly[!(links_2019_wonly$increase_rate_2015_2019 < 0),]
+
+# Create an igraph object
+net_2019 <- graph_from_data_frame(d=links_2019_wonly, vertices=nodes, directed=T) 
+```
+
+```{r q_plot_2019_2, echo=TRUE}
+# plot four figures - 2 rows, 2 columns
+par(mfrow=c(2,2), mai=c(0.1, 0.1, 0.1, 0.1)) 
+
+V(net_2019)$size <- V(net_2019)$Influenza2019/2500
+V(net_2019)$color <- "lightblue"
+V(net_2019)$frame.color <- "SkyBlue2"
+V(net_2019)$label <- nodes$Country 
+E(net_2019)$color <- "gray70"
+E(net_2019)$arrow.size <- 0.1
+E(net_2019)$width <- (E(net_2019)$increase_rate_2015_2019)/80
+
+
+# make 4 subplots
+# fr
+plot(net_2019, layout = layout_with_fr, main = "layout_with_fr")
+
+# kk
+plot(net_2019, layout = layout_with_kk, main="layout_with_kk")
+
+# circle
+plot(net_2019, layout = layout_in_circle, main="layout_in_circle")
+
+#lgl
+plot(net_2019, layout = layout_with_lgl, main="layout_with_lgl")
+
+title("Year 2019",cex.main=2, col.main="Black", adj = 1, line = -12)
+```
+
+```{r q_plot_all_kk, echo=TRUE}
+# plot four figures - 2 rows, 2 columns
+par(mfrow=c(2,2), mai=c(0.1, 0.1, 0.1, 0.1)) 
+
+# make 4 subplots
+# 2005
+plot(net_2005, layout = layout_with_fr, main = "2005")
+
+# 2010
+plot(net_2010, layout = layout_with_fr, main = "2010")
+
+# 2015
+plot(net_2015, layout = layout_with_fr, main = "2015")
+
+#2019
+plot(net_2019, layout = layout_with_fr, main = "2019")
+
+title("2005 - 2019: layout_with_fr",cex.main=1.5, col.main="Black", adj = 0.1, line = -12)
+```
+
+
+
+
+
+
+
+
+
+
+```{r q_network3D_2019, echo=TRUE}
+columnslist <- c("Country", "Country", "Region", "Influenza2019")
+nodes_vis <- nodes[columnslist]
+colnames(nodes_vis) <- c("id", "label", "group", "value")
+
+edges_vis <- links_2019_wonly[, c("Destination", "Origin", "increase_rate_2015_2019")]
+colnames(edges_vis) <- c("to", "from", "weight")
+head(edges_vis)
+
+visNetwork(nodes_vis, edges_vis) %>% 
+  visIgraphLayout(layout = "layout_with_kk")  %>% 
+  visLegend()
+```
+
+# Plot all countries
+
+## Load Data
+
+```{r q_a, echo=TRUE}
+setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration")
+nodes_all <- read.csv("CountryNodes_InfluenzaData.csv", header=T, as.is=T)
+```
+
+## Plot
+
+### i) 2005 Data
+
+```{r q_plot_all_2005, echo=TRUE}
+# Create an igraph object
+net_2005_all <- graph_from_data_frame(d=links_2005_wonly, vertices=nodes_all, directed=T) 
+```
+
+```{r q_plot_all_2005_2, echo=TRUE}
+# plot four figures - 2 rows, 2 columns
+par(mfrow=c(2,2), mai=c(0.1, 0.1, 0.1, 0.1)) 
+
+V(net_2005_all)$size <- V(net_2005_all)$Influenza2005/2500
+V(net_2005_all)$color <- "lightblue"
+V(net_2005_all)$frame.color <- "SkyBlue2"
+V(net_2005_all)$label <- NA
+E(net_2005_all)$color <- "gray70"
+E(net_2005_all)$arrow.size <- 0.1
+E(net_2005_all)$width <- (E(net_2005_all)$increase_rate_2000_2005)/80
+
+
+# make 4 subplots
+# fr
+plot(net_2005_all, layout = layout_with_fr, main = "layout_with_fr")
+
+# kk
+plot(net_2005_all, layout = layout_with_kk, main="layout_with_kk")
+
+# circle
+plot(net_2005_all, layout = layout_in_circle, main="layout_in_circle")
+
+#lgl
+plot(net_2005_all, layout = layout_with_lgl, main="layout_with_lgl")
+
+title("Year 2005",cex.main=2, col.main="Black", adj = 1, line = -12.5)
+```
+
+```{r q_network3D_all_2019, echo=TRUE}
+nodes_vis <- nodes_all[columnslist]
+colnames(nodes_vis) <- c("id", "label", "group", "value")
+head(nodes_vis)
+
+edges_vis <- links_2019_wonly[, c("Destination", "Origin", "increase_rate_2015_2019")]
+colnames(edges_vis) <- c("to", "from", "weight")
+
+visNetwork(nodes_vis, edges_vis) %>% 
+  visIgraphLayout(layout = "layout_with_kk")  %>% 
+  visLegend()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
