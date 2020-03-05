@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, error = TRUE)
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, warning = FALSE)
 ```
 
 ```{r}
@@ -14,10 +14,11 @@ rm(list = ls())
 library(dplyr)
 library(network)
 library(maps)
-
+library(scales)
+library(igraph)
 ```
 
-```{r}
+```{r, echo=FALSE}
 # # nodes come from the above table and contain geo-coordinates for some
 # # randomly picked countries
 # node <- read.csv("D:/Download/Countries.csv", header = T, as.is = T)
@@ -121,7 +122,7 @@ sum(jinf2019$ALL_INF)
 ```
 
 ```{r}
-inf2019 <- matrix(c("China", 122757,"Dem. People's Republic of Korea", 271,"Italy", 6361,"Japan",9525),ncol=2,byrow=TRUE)
+inf2019 <- matrix(c("China", 122757,"Republic of Korea", 271,"Italy", 6361,"Japan",9525),ncol=2,byrow=TRUE)
 colnames(inf2019) <- c("Country", "cases")
 rownames(inf2019) <- c("1","2","3", "4")
 inf2019 <- as.table(inf2019)
@@ -144,13 +145,35 @@ medge$Weight <- (medge$Weight19 - medge$Weight15)/medge$Weight15
 ```
 
 ```{r}
-medgef <- medge %>% filter(Destination == c("China", "Italy", "Japan", "Dem. People's Republic of Korea")) %>%
+medgef <- medge %>% filter(Destination == c("China", "Italy", "Japan", "Republic of Korea")) %>%
   #filter(Origin == c("China", "Italy", "Japan", "Dem. People's Republic of Korea")) %>%
   filter(Weight > 0)
+medgef <- medgef[c("Origin", "Destination", "Weight19", "Weight15", "Weight")]
 ```
 
 ```{r}
-mnodef <- mnode %>% filter(Country == medgef$Origin)
+mnodef <- mnode %>% filter(Country %in% c("China", "Italy", "Japan", "Republic of Korea", 
+                                        "Australia", "China, Hong Kong SAR",
+                                        "Russian Federation", "Sri Lanka", "Thailand",
+                                        "United States of America", "Algeria", "Belarus",
+                                        "Bosnia and Herzegovina", "Brunei Darussalam", "Cabo Verde",
+                                        "Chile", "Colombia", "Costa Rica",
+                                        "Democratic Republic of the Congo","Dominican Republic",
+                                        "Equatorial Guinea", "Ethiopia", "Finland", "Gabon", "Ghana",
+                                        "Grenada", "Guinea", "India", "Ireland", "Latvia", "Libya",
+                                        "Madagascar", "Mali", "Mauritania", "Namibia", "Nigeria",
+                                        "Norway", "Philippines", "Romania", "Saint Kitts and Nevis",
+                                        "Samoa", "Senegal", "Singapore", "Solomon Islands", "Spain",
+                                        "Suriname", "Tajikistan", "Turkey", "Uganda",
+                                        "United Republic of Tanzania", "Uzbekistan", "Zimbabwe",
+                                        "Canada", "Germany", "Mexico", "Netherlands", "Peru",
+                                        "United Kingdom", "Viet Nam", "Cambodia", "France", "Indonesia"
+                                        ))
+```
+
+```{r}
+mnodef$cases <- 0
+mnodef$cases[c(10, 42, 28, 29)] <- c(122757, 271, 6361, 9525)
 ```
 
 ```{r}
@@ -158,7 +181,7 @@ mnodef <- mnode %>% filter(Country == medgef$Origin)
 ## Plot  ##
 ###########
 # create new igraph object
-net_degree2 <- graph_from_data_frame(d=medgef, vertices=mnode, directed=T)
+net_degree2 <- graph_from_data_frame(d=medgef, vertices=mnodef, directed=T)
 
 # vertex color based on degree level
 # vcol <- rep("snow2", vcount(net_degree2))     #deebf7 # assigned third degree very light blue to top 101 - 232 countries
@@ -170,12 +193,13 @@ net_degree2 <- graph_from_data_frame(d=medgef, vertices=mnode, directed=T)
 V(net_degree2)$frame.color <- "black"
 
 # vertex label and size
-V(net_degree2)$label <- mnode$Country
+V(net_degree2)$label <- mnodef$Country
 V(net_degree2)$label.cex <- 0.5
-V(net_degree2)$label.color <- "white"
+V(net_degree2)$label.color <- "black"
 
 # Vertex size
-V(net_degree2)$size <- inf19$cases
+V(net_degree2)$size <- rescale(mnodef$cases, to = c(0,10))
+  #mnodef$cases/2000
   #round((new_nodes$Degree)/16, 2)
 
 # edge color and size
@@ -191,7 +215,7 @@ l <- layout_with_fr(net_degree2)
 par(mai=c(0,0,0.1,0.1))
 plot(net_degree2, layout = l, vertex.label = V(net_degree2)$label,
        #ifelse(degree(net_degree2) > 300, V(net_degree2)$label, NA), 
-     main="Network Graph based on Node Degree")
+     main="Network Graph with fr layout")
 
 ```
 
