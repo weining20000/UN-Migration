@@ -1,0 +1,197 @@
+---
+title: "testing world map network"
+author: "Wenyu Zeng"
+date: "2020/2/13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE)
+```
+
+```{r}
+rm(list = ls())
+library(dplyr)
+library(network)
+library(maps)
+
+```
+
+```{r}
+# # nodes come from the above table and contain geo-coordinates for some
+# # randomly picked countries
+# node <- read.csv("D:/Download/Countries.csv", header = T, as.is = T)
+# #So we now have 15 countries, each with an ID, geo-coordinates (lon and lat) and a name. These are our graph nodes. We’ll now create some random connections (edges) between our nodes:
+# 
+# edges <- read.csv("D:/Download/George Washington University/Spring 2020/Network Data Science/EdgeList.csv", header = T, as.is = T)
+# 
+# names(edges)[1] <- "to"
+# names(edges)[2] <- "from"
+# 
+# onode <- read.csv("D:/Download/George Washington University/Spring 2020/Network Data Science/CountryNodes.csv")
+# 
+# node <- node %>% right_join(onode, by = "Country") %>% mutate(ID = row_number()) %>% mutate(Country = as.factor(Country))
+# 
+# nodec <- na.omit(node)
+# 
+# #%>% mutate(ID = row_number())
+# 
+# head(node)
+# head(edges)
+# 
+# # N_EDGES_PER_NODE_MIN <- 1
+# # N_EDGES_PER_NODE_MAX <- 4
+# # N_CATEGORIES <- 4
+# # 
+# # # edges: create random connections between countries (nodes)
+# # edges <- map_dfr(nodes$id, function(id) {
+# #   n <- floor(runif(1, N_EDGES_PER_NODE_MIN, N_EDGES_PER_NODE_MAX+1))
+# #   to <- sample(1:max(nodes$id), n, replace = FALSE)
+# #   to <- to[to != id]
+# #   categories <- sample(1:N_CATEGORIES, length(to), replace = TRUE)
+# #   weights <- runif(length(to))
+# #   data_frame(from = id, to = to, weight = weights, category = categories)
+# # })
+# 
+# # edges <- edges %>% mutate(category = as.factor(category))
+# ```
+# 
+# ```{r}
+# nrow(node); length(unique(node$id))
+# nrow(edges); nrow(unique(edges[,c("from", "to")]))
+# ```
+# 
+# ```{r}
+# reducedEdgelist2<-edges[edges$Weight>500000, c("from", "to", "Weight")]
+# head(reducedEdgelist2) 
+# nrow(reducedEdgelist2)
+# ```
+# 
+# ```{r}
+# set.seed(123)
+# coocNet2<-network(reducedEdgelist2,
+#                  matrix.type='edgelist',
+#                  directed=FALSE,  # this will be an undirected network
+#                  ignore.eval=FALSE,  # confusingly, this tells it to include edge weights
+#                  names.eval='Weight'  # names for the edge weights
+#                  )
+```
+
+```{r}
+cinf <- read.csv("ChinaFluNetReport.csv")
+kinf <- read.csv("KoreaFluNetReport.csv")
+iinf <- read.csv("ItalyFluNetReport.csv")
+jinf <- read.csv("JapanFluNetReport.csv")
+#rinf <- read.csv("IranFluNetReport.csv")
+```
+
+```{r}
+names(cinf)[1] <- "Country"
+names(kinf)[1] <- "Country"
+names(iinf)[1] <- "Country"
+names(jinf)[1] <- "Country"
+```
+```{r}
+cinf2019 <- cinf %>% select("Country", "Year", "ALL_INF") %>% filter(Year == 2019) 
+#%>% summarise("yr_total" = sum("All_INF"))
+sum(cinf2019$ALL_INF)
+
+```
+
+```{r}
+kinf2019 <- kinf %>% select("Country", "Year", "ALL_INF") %>% filter(Year == 2019) 
+#%>% summarise("yr_total" = sum("All_INF"))
+kinf2019 <- na.omit(kinf2019)
+sum(kinf2019$ALL_INF)
+
+```
+
+```{r}
+iinf2019 <- iinf %>% select("Country", "Year", "ALL_INF") %>% filter(Year == 2019) 
+#%>% summarise("yr_total" = sum("All_INF"))
+iinf2019 <- na.omit(iinf2019)
+sum(iinf2019$ALL_INF)
+```
+
+```{r}
+jinf2019 <- jinf %>% select("Country", "Year", "ALL_INF") %>% filter(Year == 2019) 
+#%>% summarise("yr_total" = sum("All_INF"))
+jinf2019 <- na.omit(jinf2019)
+sum(jinf2019$ALL_INF)
+```
+
+```{r}
+inf2019 <- matrix(c("China", 122757,"Dem. People's Republic of Korea", 271,"Italy", 6361,"Japan",9525),ncol=2,byrow=TRUE)
+colnames(inf2019) <- c("Country", "cases")
+rownames(inf2019) <- c("1","2","3", "4")
+inf2019 <- as.table(inf2019)
+inf19 <- as.data.frame.matrix(inf2019, header = T)
+```
+
+```{r}
+mnode <- read.csv("CountryNodes.csv", header = T, as.is=T)
+medge <- read.csv("EdgeList.csv", header = T, as.is = T)
+medge15 <- read.csv("EdgeList2015.csv", header = T, as.is = T)
+```
+
+```{r}
+names(medge)[3] <- "Weight19"
+medge$Weight15 <- medge15$Weight
+```
+
+```{r}
+medge$Weight <- (medge$Weight19 - medge$Weight15)/medge$Weight15
+```
+
+```{r}
+medgef <- medge %>% filter(Destination == c("China", "Italy", "Japan", "Dem. People's Republic of Korea")) %>%
+  #filter(Origin == c("China", "Italy", "Japan", "Dem. People's Republic of Korea")) %>%
+  filter(Weight > 0)
+```
+
+```{r}
+mnodef <- mnode %>% filter(Country == medgef$Origin)
+```
+
+```{r}
+###########
+## Plot  ##
+###########
+# create new igraph object
+net_degree2 <- graph_from_data_frame(d=medgef, vertices=mnode, directed=T)
+
+# vertex color based on degree level
+# vcol <- rep("snow2", vcount(net_degree2))     #deebf7 # assigned third degree very light blue to top 101 - 232 countries
+# vcol[223:232] <- "skyblue1"                   #3182bd  #assign first degree dark blue to top ten countries
+# vcol[123:222] <- "slategray1"                 #9ecae1 #assign second degree light blue to top 11-100 countries
+# V(net_degree2)$color <- vcol
+
+# vertex frame color
+V(net_degree2)$frame.color <- "black"
+
+# vertex label and size
+V(net_degree2)$label <- mnode$Country
+V(net_degree2)$label.cex <- 0.5
+V(net_degree2)$label.color <- "white"
+
+# Vertex size
+V(net_degree2)$size <- inf19$cases
+  #round((new_nodes$Degree)/16, 2)
+
+# edge color and size
+E(net_degree2)$width <- medgef$Weight
+E(net_degree2)$color <- "gray80"
+E(net_degree2)$arrow.size <- .2
+#E(net_degree)$arrow.mode <- 1
+
+# layout
+l <- layout_with_fr(net_degree2)
+
+# plot
+par(mai=c(0,0,0.1,0.1))
+plot(net_degree2, layout = l, vertex.label = V(net_degree2)$label,
+       #ifelse(degree(net_degree2) > 300, V(net_degree2)$label, NA), 
+     main="Network Graph based on Node Degree")
+
+```
+
