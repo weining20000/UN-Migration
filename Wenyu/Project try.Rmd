@@ -172,7 +172,7 @@ mnodef <- mnode %>% filter(Country %in% c("China", "Italy", "Japan", "Republic o
 ```
 
 ```{r}
-mnodef$cases <- 0
+mnodef$cases <- 5
 mnodef$cases[c(10, 42, 28, 29)] <- c(122757, 271, 6361, 9525)
 ```
 
@@ -183,11 +183,11 @@ mnodef$cases[c(10, 42, 28, 29)] <- c(122757, 271, 6361, 9525)
 # create new igraph object
 net_degree2 <- graph_from_data_frame(d=medgef, vertices=mnodef, directed=T)
 
-# vertex color based on degree level
-# vcol <- rep("snow2", vcount(net_degree2))     #deebf7 # assigned third degree very light blue to top 101 - 232 countries
-# vcol[223:232] <- "skyblue1"                   #3182bd  #assign first degree dark blue to top ten countries
-# vcol[123:222] <- "slategray1"                 #9ecae1 #assign second degree light blue to top 11-100 countries
-# V(net_degree2)$color <- vcol
+# # vertex color based on degree level
+#  vcol <- rep("snow2", vcount(net_degree2))     #deebf7 # assigned third degree very light blue to top 101 - 232 countries
+#  vcol[223:232] <- "skyblue1"                   #3182bd  #assign first degree dark blue to top ten countries
+#  vcol[123:222] <- "slategray1"                 #9ecae1 #assign second degree light blue to top 11-100 countries
+#  V(net_degree2)$color <- vcol
 
 # vertex frame color
 V(net_degree2)$frame.color <- "black"
@@ -198,7 +198,7 @@ V(net_degree2)$label.cex <- 0.5
 V(net_degree2)$label.color <- "black"
 
 # Vertex size
-V(net_degree2)$size <- rescale(mnodef$cases, to = c(0,10))
+V(net_degree2)$size <- rescale(mnodef$cases, to = c(5,10))
   #mnodef$cases/2000
   #round((new_nodes$Degree)/16, 2)
 
@@ -213,9 +213,13 @@ l <- layout_with_fr(net_degree2)
 
 # plot
 par(mai=c(0,0,0.1,0.1))
-plot(net_degree2, layout = l, vertex.label = V(net_degree2)$label,
+plot(net_degree2, layout = l, vertex.label = V(net_degree2)$label, 
        #ifelse(degree(net_degree2) > 300, V(net_degree2)$label, NA), 
      main="Network Graph with fr layout")
 
+```
+
+```{r}
+V(net_degree2)$size
 ```
 
