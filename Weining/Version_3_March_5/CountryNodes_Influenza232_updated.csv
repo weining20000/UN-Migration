@@ -10,7 +10,7 @@ British Virgin Islands,Caribbean,Latin America and The Caribbean,0.5,0.5,0.5,0.5
 "Bonaire, Sint Eustatius and Saba",Caribbean,Latin America and The Caribbean,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
 Cayman Islands,Caribbean,Latin America and The Caribbean,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,2.0,5.0,0.0
 Cuba,Caribbean,Latin America and The Caribbean,0.0,0.0,0.0,0.0,1459.0,1301.0,357.0,386.0,963.0,283.0,605.0,337.0,145.0,238.0,463.0
-CuraÃ§ao,Caribbean,Latin America and The Caribbean,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
+Réunion,Caribbean,Latin America and The Caribbean,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
 Dominica,Caribbean,Latin America and The Caribbean,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,17.0,0.0,0.0,14.0,4.0
 Dominican Republic,Caribbean,Latin America and The Caribbean,2.0,2.0,0.0,24.0,0.0,76.0,187.0,119.0,231.0,35.0,54.0,917.0,63.0,203.0,90.0
 Grenada,Caribbean,Latin America and The Caribbean,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
@@ -51,7 +51,7 @@ Malawi,Eastern Africa,Sub_Saharan Arica,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,
 Mauritius,Eastern Africa,Sub_Saharan Arica,0.0,0.0,0.0,0.0,0.0,167.0,50.0,54.0,158.0,86.0,2.0,143.0,95.0,102.0,570.0
 Mayotte,Eastern Africa,Sub_Saharan Arica,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
 Mozambique,Eastern Africa,Sub_Saharan Arica,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,17.0,17.0,46.0,32.0,78.0,66.0,91.0
-RÃ©union,Eastern Africa,Sub_Saharan Arica,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
+Curaçao,Eastern Africa,Sub_Saharan Arica,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
 Rwanda,Eastern Africa,Sub_Saharan Arica,0.0,0.0,0.0,0.0,0.0,217.0,88.0,93.0,151.0,55.0,31.0,68.0,10.0,25.0,50.0
 Seychelles,Eastern Africa,Sub_Saharan Arica,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,9.0
 Somalia,Eastern Africa,Sub_Saharan Arica,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
@@ -190,7 +190,7 @@ Spain,Southern Europe,Europe and Northern America,63.0,667.0,398.0,916.0,9270.0,
 Benin,Western Africa,Sub_Saharan Arica,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
 Burkina Faso,Western Africa,Sub_Saharan Arica,0.0,0.0,0.0,0.0,0.0,0.0,30.0,44.0,103.0,105.0,3.0,52.0,55.0,236.0,107.0
 Cabo Verde,Western Africa,Sub_Saharan Arica,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
-CÃ´te d'Ivoire,Western Africa,Sub_Saharan Arica,0.0,0.0,0.0,0.0,344.0,214.0,417.0,261.0,351.0,212.0,287.0,360.0,337.0,262.0,458.0
+Côte d'Ivoire,Western Africa,Sub_Saharan Arica,0.0,0.0,0.0,0.0,344.0,214.0,417.0,261.0,351.0,212.0,287.0,360.0,337.0,262.0,458.0
 Gambia,Western Africa,Sub_Saharan Arica,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
 Ghana,Western Africa,Sub_Saharan Arica,0.0,0.0,0.0,61.0,410.0,1171.0,396.0,535.0,248.0,292.0,416.0,711.0,469.0,742.0,1172.0
 Guinea,Western Africa,Sub_Saharan Arica,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,63.0,135.0
