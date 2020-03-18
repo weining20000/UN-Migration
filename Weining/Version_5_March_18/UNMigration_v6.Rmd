@@ -1,0 +1,874 @@
+---
+title: "UN Migration Data - Version 5"
+author: "Winnie Hu"
+date: "3/11/2020"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    code_folding: show
+always_allow_html: yes
+autosize: True
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(igraph)
+library(formattable)
+library(ggplot2)
+library(DT)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(tibble)
+library(networkD3)
+library(visNetwork)
+```
+
+# Load Data
+
+```{r q1, echo=TRUE}
+setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration/Version_3_March_5")
+nodes <- read.csv("CountryNodes_Influenza232_updated.csv", header=T, as.is=T)
+links <- read.csv("EdgeList_All.csv", header=T, as.is=T)
+```
+
+# Examine Data
+
+## i) Nodes and Links
+
+```{r q2, echo=FALSE}
+nodes
+links
+
+no_country <- nrow(nodes)
+no_region <- length(unique(nodes$Region))
+no_UN_region <- length(unique(nodes$UN_region))
+no_region
+no_UN_region
+```
+
+```{r q2_statistics, echo=FALSE}
+# 2005
+nrow(nodes[!nodes$Influenza2005 == 0,])
+quantile(nodes$Influenza2005, c(0, 0.35, 0.5, .85, .95, 1))
+mean(nodes$Influenza2005)
+
+# 2010
+nrow(nodes[!nodes$Influenza2010 == 0,])
+quantile(nodes$Influenza2010, c(0, 0.35, 0.5, .85, .95, 1))
+mean(nodes$Influenza2010)
+
+# 2015
+nrow(nodes[!nodes$Influenza2015 == 0,])
+quantile(nodes$Influenza2015, c(0, 0.35, 0.5, .85, .95, 1))
+mean(nodes$Influenza2015)
+
+# 2019
+nrow(nodes[!nodes$Influenza2019 == 0,])
+quantile(nodes$Influenza2019, c(0, 0.35, 0.5, .85, .95, 1))
+mean(nodes$Influenza2019)
+```
+
+# Plot
+
+## i) 2019 Plot All Countries
+
+```{r plot_2019_all, echo=TRUE}
+### create links dataset for 2019
+# select columns for the period between 2015 and 2019
+columnsfor2019 <- c("Origin", "Destination", "increase_rate_2015_2019")
+links_2019 <- links[columnsfor2019]
+
+# remove links with 0 weight and negative weight
+links_2019_wonly <-links_2019[!(links_2019$increase_rate_2015_2019 == 0),]
+New_links_2019 <-links_2019_wonly[!(links_2019_wonly$increase_rate_2015_2019 < 0),]
+#New_links_2019
+
+### create nodes dataset for 2019 data
+columnsfor2019nodes <- c("Country", "UN_Region", "Influenza2019")
+new_nodes_2019 <- nodes[columnsfor2019nodes]
+# rescale node size
+new_nodes_2019$Rescale_size <- rescale(x = new_nodes_2019$Influenza2019, to = c(2, 10), from = range(x = new_nodes_2019$Influenza2019, na.rm = TRUE, finite = TRUE))
+#new_nodes_2019
+
+# Create an igraph object
+net_2019_all <- graph_from_data_frame(d=New_links_2019, new_nodes_2019, directed=T) 
+
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+
+# node size
+V(net_2019_all)$size <- V(net_2019_all)$Rescale_size*3
+
+# node color
+# Make a palette of 3 colors
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2") 
+# Create a vector of color
+my_color <- colrs[as.numeric(as.factor(V(net_2019_all)$UN_Region))]
+V(net_2019_all)$color <- my_color
+V(net_2019_all)$frame.color <- "white"
+V(net_2019_all)$frame.size <- 0.1
+
+
+V(net_2019_all)$label.color <- 'black'
+V(net_2019_all)$label <- new_nodes_2019$Country
+V(net_2019_all)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_2019_all)$width <- 0.1
+
+# set arrow size and edge color
+#E(net_2019_all)$arrow.size <- 0.05
+E(net_2019_all)$arrow.mode <- 0 # 2 for forward arraw from Origin to Destination (1 for backward) 
+
+jpeg("Figure_2019_all_countries_lgl.jpg", width=10, height=6, units='in',res=1000)
+
+# set seed
+set.seed(1234)
+
+# plot fr
+plot(net_2019_all, layout = layout_with_lgl, main = "2019 migration increase rate vs influenza cases (All Countries)(Layout_with_lgl)")
+
+# Add a legend
+legend("topright", legend=levels(as.factor(V(net_2019_all)$UN_Region)), col = colrs , bty = "n", pch=20 , pt.cex = 0.9, cex = .4, text.col=colrs , horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+```
+
+
+## ii) plot 2019 top 15 countries
+
+```{r plot_2019_stat, echo=TRUE}
+setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration/Version_3_March_5")
+nodes <- read.csv("CountryNodes_Influenza232_updated.csv", header=T, as.is=T)
+links <- read.csv("EdgeList_All.csv", header=T, as.is=T)
+
+### create links dataset (destination only includes top 15 countries)
+# select columns
+columnsfor2019 <- c("Origin", "Destination", "increase_rate_2015_2019")
+links_2019 <- links[columnsfor2019]
+
+# remove links with 0 weight or negative weight
+links_2019_wonly <-links_2019[!(links_2019$increase_rate_2015_2019 == 0),]
+links_2019_wonly <-links_2019_wonly[!(links_2019_wonly$increase_rate_2015_2019 < 0),]
+#head(links_2019_wonly)
+
+# retain observations where destination countries are the top 15
+top_15_countries <- c("China", "Republic of Korea", "Iran (Islamic Republic of)", "Italy", "Japan", "France", "Germany", "Spain", "United States of America", "Switzerland", "Norway", "Denmark", "Netherlands", "Sweden", "United Kingdom")
+new_links_2019 <- links_2019_wonly[links_2019_wonly$Destination %in% top_15_countries, ]
+#top_6_countries <- c("Italy", "Japan", "Republic of Korea")
+#new_links_2019 <- links_2019_wonly[links_2019_wonly$Destination %in% top_6_countries, ]
+new_links_2019
+
+# check the number of unique countries in destination
+unique_c <- unique(new_links_2019$Destination)
+length(unique_c) # Iran is missing because its migration increase rate was 0 or negative
+
+### create nodes dataset (distinct countries in the links dataset and the top-15 countries)
+unique_o <- unique(new_links_2019$Origin)
+#unique_o
+dele_countries <- setdiff(nodes$Country, unique_o)
+
+# delete rows that contain country names in dele_countries since these countries are not in the links dataset
+new_nodes <- nodes[!nodes$Country %in% dele_countries, ]
+unique_n_c <- unique(new_nodes$Country)
+length(unique_n_c)
+
+# select columns for nodes dataframe
+columnsfornodes <- c("Country", "UN_Region", "Influenza2019")
+new_nodes_2019 <- new_nodes[columnsfornodes]
+
+# rescale node sizes to range (0, 1)
+new_nodes_2019$Rescale_weight <- rescale(x = new_nodes_2019$Influenza2019, to = c(3, 10), from = range(x = new_nodes_2019$Influenza2019, na.rm = TRUE, finite = TRUE))
+
+new_nodes_2019
+```
+
+```{r q_2019_plot_top_15, echo=TRUE}
+# Create an igraph object
+net_2019 <- graph_from_data_frame(d = new_links_2019, vertices = new_nodes_2019, directed=T) 
+
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+
+# node size
+V(net_2019)$size <- V(net_2019)$Rescale_weight*2
+
+# node color
+# Make a palette of 3 colors
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2") 
+# Create a vector of color
+my_color <- colrs[as.numeric(as.factor(V(net_2019)$UN_Region))]
+V(net_2019)$color <- my_color
+V(net_2019)$frame.color <- "white"
+V(net_2019)$frame.size <- 0.1
+
+
+V(net_2019)$label.color <- 'black'
+V(net_2019)$label <- new_nodes_2019$Country
+V(net_2019)$label.cex = 0.2
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_2019)$width <- 0.1
+
+# set arrow size and edge color
+E(net_2019)$arrow.size <- 0.05
+E(net_2019)$arrow.mode <- 2 # 2 for forward arraw from Origin to Destination (1 for backward) 
+
+#pdf("plot.pdf",width=11, height=8.5, family="Helvetica", pointsize=11)
+#png("plot.png", width=5000, height=5000)
+jpeg("Figure_2019_top_15_lgl.jpg", width=10, height=6, units='in',res=1000)
+
+# set seed
+set.seed(1234)
+
+# plot fr
+plot(net_2019, layout = layout_with_lgl, main = "2019 migration increase rate vs influenza cases (Top 15 Covid-19 Countries) (layout_with_lgl)")
+
+# Add a legend
+legend("topright", legend=levels(as.factor(V(net_2019)$UN_Region)), col = colrs , bty = "n", pch=20 , pt.cex = 0.9, cex = .4, text.col=colrs , horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+
+# reference: group color https://www.r-graph-gallery.com/249-igraph-network-map-a-color.html
+# reference: figure size https://www.stat.auckland.ac.nz/~ihaka/787/lectures-layouts.pdf
+# reference: increase plot resolution https://christinaslisrant.scientopia.org/2015/02/12/exporting-high-resolution-graphs-from-rstudio/
+```
+
+## iii) Plot time series data from 2005 to 2019 (rescaled node size and same link width)
+
+```{r plot_timeseries_1, echo=TRUE}
+head(links)
+head(nodes)
+
+### rescale the node size across all yearly data
+# select columns for forming the new nodes df
+columnsforts <- c("Country", "Country", "UN_Region", "Influenza2005", "Influenza2010",  "Influenza2015",  "Influenza2019")
+nodes_ts <- nodes[columnsforts]
+names(nodes_ts)[2] <- "Label" # rename "country.1" to "Country_Name_Label"
+#nodes_ts
+
+# recale the entire nodes df
+# find the largest and smallest nodes value
+colMax <- function(data) sapply(data, max, na.rm = TRUE)
+colMax(nodes_ts)
+colMin <- function(data) sapply(data, min, na.rm = TRUE)
+colMin(nodes_ts)
+# rescale the entire time series nodes df
+# 2019
+nodes_ts$Rescale_Inf2019 <- rescale(x = nodes_ts$Influenza2019, to = c(6, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+# 2015
+nodes_ts$Rescale_Inf2015 <- rescale(x = nodes_ts$Influenza2015, to = c(6, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+# 2010
+nodes_ts$Rescale_Inf2010 <- rescale(x = nodes_ts$Influenza2010, to = c(6, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+# 2005
+nodes_ts$Rescale_Inf2005 <- rescale(x = nodes_ts$Influenza2005, to = c(6, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+#nodes_ts
+
+### create links df for each year
+# 2019
+colsts2019 <- c("Destination", "Origin", "increase_rate_2015_2019")
+links_ts_2019 <- links[colsts2019]
+# remove links with 0 weight and negative weight
+links_ts_2019 <-links_ts_2019[!(links_ts_2019$increase_rate_2015_2019 == 0),]
+links_ts_2019 <-links_ts_2019[!(links_ts_2019$increase_rate_2015_2019 < 0),]
+# rescale links width across all four years' data
+links_ts_2019$Rescale_link_width <- rescale(x = links_ts_2019$increase_rate_2015_2019, to = c(0.2, 1), from = range(x = links_ts_2005$increase_rate_2000_2005), na.rm = TRUE, finite = TRUE) # the largest increase rate was 167800 in 2005 
+
+# 2015
+colsts2015 <- c("Destination", "Origin", "increase_rate_2010_2015")
+links_ts_2015 <- links[colsts2015]
+# remove links with 0 weight and negative weight
+links_ts_2015 <-links_ts_2015[!(links_ts_2015$increase_rate_2010_2015 == 0),]
+links_ts_2015 <-links_ts_2015[!(links_ts_2015$increase_rate_2010_2015 < 0),]
+# rescale links width across all four years' data
+links_ts_2015$Rescale_link_width <- rescale(x = links_ts_2015$increase_rate_2010_2015, to = c(0.2, 1), from = range(x = links_ts_2005$increase_rate_2000_2005), na.rm = TRUE, finite = TRUE)
+
+# 2010
+colsts2010 <- c("Destination", "Origin", "increase_rate_2005_2010")
+links_ts_2010 <- links[colsts2010]
+# remove links with 0 weight and negative weight
+links_ts_2010 <-links_ts_2010[!(links_ts_2010$increase_rate_2005_2010 == 0),]
+links_ts_2010 <-links_ts_2010[!(links_ts_2010$increase_rate_2005_2010 < 0),]
+# rescale links width across all four years' data
+links_ts_2010$Rescale_link_width <- rescale(x = links_ts_2010$increase_rate_2005_2010, to = c(0.2, 1), from = range(x = links_ts_2005$increase_rate_2000_2005), na.rm = TRUE, finite = TRUE)
+
+# 2005
+colsts2005 <- c("Destination", "Origin", "increase_rate_2000_2005")
+links_ts_2005 <- links[colsts2005]
+# remove links with 0 weight and negative weight
+links_ts_2005 <-links_ts_2005[!(links_ts_2005$increase_rate_2000_2005 == 0),]
+links_ts_2005 <-links_ts_2005[!(links_ts_2005$increase_rate_2000_2005 < 0),]
+# rescale links width across all four years' data
+links_ts_2005$Rescale_link_width <- rescale(x = links_ts_2005$increase_rate_2000_2005, to = c(0.2, 1), from = range(x = links_ts_2005$increase_rate_2000_2005), na.rm = TRUE, finite = TRUE)
+
+
+# reference: find the max of a df https://stackoverflow.com/questions/10997444/how-to-find-highest-value-in-a-data-frame/38958839
+
+```
+
+```{r q_timeseries_2005, echo=TRUE}
+### Plot from 2005 to 2019
+# plot four figures - 2 rows, 2 columns
+#par(mfrow=c(1,2), mai=c(0.1, 0.1, 0.1, 0.1)) 
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# make 4 subplots
+# 2005
+# Create an igraph object
+net_2005_ts <- graph_from_data_frame(d=links_ts_2005, vertices = nodes_ts, directed=T) 
+
+# node size
+V(net_2005_ts)$size <- V(net_2005_ts)$Rescale_Inf2005
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2") 
+my_color <- colrs[as.numeric(as.factor(V(net_2005_ts)$UN_Region))]
+V(net_2005_ts)$color <- my_color
+V(net_2005_ts)$frame.color <- "white"
+V(net_2005_ts)$frame.size <- 0.1
+
+
+V(net_2005_ts)$label.color <- 'black'
+V(net_2005_ts)$label <- V(net_2005_ts)$Label ################## may need to change to net_2005_ts$Label
+V(net_2005_ts)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_2005_ts)$width <- 0.1
+
+# set arrow size and edge color
+#E(net_2019_all)$arrow.size <- 0.05
+E(net_2005_ts)$arrow.mode <- 0 # 2 for forward arraw from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_Time_Series_2005_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2005
+plot(net_2005_ts, layout = layout_with_fr, main = "2005")
+
+
+# Add a legend
+#legend("topright", legend=levels(as.factor(V(net_2005_ts)$UN_Region)), col = colrs , bty = "n", pch=20 , pt.cex = #0.9, cex = .4, text.col=colrs , horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+```
+
+
+```{r q_timeseries_2010, echo=TRUE}
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# plot 2010
+# Create an igraph object
+net_2010_ts <- graph_from_data_frame(d=links_ts_2010, vertices = nodes_ts, directed=T) 
+
+# node size
+V(net_2010_ts)$size <- V(net_2010_ts)$Rescale_Inf2010
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2") 
+my_color <- colrs[as.numeric(as.factor(V(net_2010_ts)$UN_Region))]
+V(net_2010_ts)$color <- my_color
+V(net_2010_ts)$frame.color <- "white"
+V(net_2010_ts)$frame.size <- 0.1
+
+
+V(net_2010_ts)$label.color <- 'black'
+V(net_2010_ts)$label <- V(net_2010_ts)$Label
+V(net_2010_ts)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_2010_ts)$width <- 0.1
+
+# set arrow size and edge color
+#E(net_2019_all)$arrow.size <- 0.05
+E(net_2010_ts)$arrow.mode <- 0 # 2 for forward arraw from Origin to Destination (1 for backward) 
+
+jpeg("Figure_Time_Series_2010_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2005
+plot(net_2010_ts, layout = layout_with_fr, main = "2010")
+
+dev.off()
+```
+
+```{r q_timeseries_2015, echo=TRUE}
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# plot 2010
+# Create an igraph object
+net_2015_ts <- graph_from_data_frame(d=links_ts_2015, vertices = nodes_ts, directed=T) 
+
+# node size
+V(net_2015_ts)$size <- V(net_2015_ts)$Rescale_Inf2015
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2") 
+my_color <- colrs[as.numeric(as.factor(V(net_2015_ts)$UN_Region))]
+V(net_2015_ts)$color <- my_color
+V(net_2015_ts)$frame.color <- "white"
+V(net_2015_ts)$frame.size <- 0.1
+
+
+V(net_2015_ts)$label.color <- 'black'
+V(net_2015_ts)$label <- V(net_2015_ts)$Label
+V(net_2015_ts)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_2015_ts)$width <- 0.1
+
+# set arrow size and edge color
+#E(net_2019_all)$arrow.size <- 0.05
+E(net_2015_ts)$arrow.mode <- 0 # 2 for forward arraw from Origin to Destination (1 for backward) 
+
+jpeg("Figure_Time_Series_2015_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2015
+plot(net_2015_ts, layout = layout_with_fr, main = "2015")
+
+dev.off()
+```
+
+```{r q_timeseries_2019, echo=TRUE}
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# plot 2010
+# Create an igraph object
+net_2019_ts <- graph_from_data_frame(d=links_ts_2019, vertices = nodes_ts, directed=T) 
+
+# node size
+V(net_2019_ts)$size <- V(net_2019_ts)$Rescale_Inf2019
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2") 
+my_color <- colrs[as.numeric(as.factor(V(net_2019_ts)$UN_Region))]
+V(net_2019_ts)$color <- my_color
+V(net_2019_ts)$frame.color <- "white"
+V(net_2019_ts)$frame.size <- 0.1
+
+
+V(net_2019_ts)$label.color <- 'black'
+V(net_2019_ts)$label <- V(net_2019_ts)$Label
+V(net_2019_ts)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_2019_ts)$width <- 0.1
+
+# set arrow size and edge color
+#E(net_2019_all)$arrow.size <- 0.05
+E(net_2019_ts)$arrow.mode <- 0 # 2 for forward arraw from Origin to Destination (1 for backward) 
+
+jpeg("Figure_Time_Series_2019_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2019
+plot(net_2019_ts, layout = layout_with_fr, main = "2019")
+
+dev.off()
+```
+
+## iv) identify vertices that have highest node degree
+
+```{r q_degree, echo=TRUE}
+deg_19 <- degree(net_2019_ts, mode="out")
+sort(degree(net_2019_ts, mode="out"), decreasing = TRUE)[1:10] # careful with in and out. 
+mean(degree(net_2019_ts, mode="out"))
+
+deg_15 <- degree(net_2015_ts, mode="out")
+sort(degree(net_2015_ts, mode="out"), decreasing = TRUE)[1:10] # careful with in and out. 
+mean(degree(net_2015_ts, mode="out"))
+
+deg_10 <- degree(net_2010_ts, mode="out")
+sort(degree(net_2010_ts, mode="out"), decreasing = TRUE)[1:10] # careful with in and out. 
+mean(degree(net_2010_ts, mode="out"))
+
+deg_05 <- degree(net_2005_ts, mode="out")
+sort(degree(net_2005_ts, mode="out"), decreasing = TRUE)[1:10] # careful with in and out. 
+mean(degree(net_2005_ts, mode="out"))
+```
+
+### calculate the average node degree for each region
+```{r q_degree_regional, echo=TRUE}
+colsformerge <- c("Country", "UN_Region")
+nodes_merge <- nodes[colsformerge]
+# 2019
+df_merge_19 <- data.frame(deg_19)
+df_merge_19$Country <- rownames(df_merge_19)
+rownames(df_merge_19) <- 1:nrow(df_merge_19)
+df_merge_19 <- merge(df_merge_19, nodes_merge, by = "Country", all.x = TRUE)
+
+region_ndegree_19 <- aggregate(df_merge_19[, 2], list(df_merge_19$UN_Region), mean)[order(-region_ndegree_19$x),]
+#region_ndegree_19[order(-region_ndegree_19$x),]
+region_ndegree_19
+
+# 2015
+df_merge_15 <- data.frame(deg_15)
+df_merge_15$Country <- rownames(df_merge_15)
+rownames(df_merge_15) <- 1:nrow(df_merge_15)
+df_merge_15 <- merge(df_merge_15, nodes_merge, by = "Country", all.x = TRUE)
+
+region_ndegree_15 <- aggregate(df_merge_15[, 2], list(df_merge_15$UN_Region), mean)[order(-region_ndegree_15$x),]
+region_ndegree_15
+
+# 2010
+df_merge_10 <- data.frame(deg_10)
+df_merge_10$Country <- rownames(df_merge_10)
+rownames(df_merge_10) <- 1:nrow(df_merge_10)
+df_merge_10 <- merge(df_merge_10, nodes_merge, by = "Country", all.x = TRUE)
+
+region_ndegree_10 <- aggregate(df_merge_10[, 2], list(df_merge_10$UN_Region), mean)[order(-region_ndegree_10$x),]
+region_ndegree_10
+
+# 2005
+df_merge_05 <- data.frame(deg_05)
+df_merge_05$Country <- rownames(df_merge_05)
+rownames(df_merge_05) <- 1:nrow(df_merge_05)
+df_merge_05 <- merge(df_merge_05, nodes_merge, by = "Country", all.x = TRUE)
+
+region_ndegree_05 <- aggregate(df_merge_05[, 2], list(df_merge_05$UN_Region), mean)[order(-region_ndegree_05$x),]
+region_ndegree_05
+```
+
+
+
+```{r q_degree_plot1, echo=TRUE}
+inc.edges <- incident(net_2019_ts, V(net_2019_ts)[Label=="Chile"], mode="out")
+
+# Set colors to plot the selected edges.
+ecol <- rep("gray70", ecount(net))
+ecol[inc.edges] <- "orange"
+vcol <- rep("grey40", vcount(net))
+vcol[V(net_2019_ts)$Label == "Chile"] <- "gold"
+
+# set seed
+set.seed(1234)
+jpeg("Figure_2019_nodedegree_chile.jpg", width=10, height=6, units='in',res=1000)
+plot(net_2019_ts, vertex.color=vcol, edge.color=ecol, layout = layout_with_kk, main = "Chile (2019)")
+#jpeg("Figure_2019_nodedegree_chile.jpg", width=10, height=6, units='in',res=1000)
+
+dev.off()
+```
+
+```{r q_degree_plot2, echo=TRUE}
+vcol[V(net_2019_ts)$Label == "Chile"] <- "green"
+neigh.nodes <- neighbors(net_2019_ts, V(net_2019_ts)[Label=="Chile"], mode="out")
+# Set colors to plot the neighbors:
+vcol[neigh.nodes] <- "#ff9d00"
+
+# set seed
+set.seed(1234)
+jpeg("Figure_2019_nodedegree_chile_nodes.jpg", width=10, height=6, units='in',res=1000)
+plot(net_2019_ts, vertex.color=vcol)
+dev.off()
+```
+
+```{r q_degree_plot3, echo=TRUE}
+jpeg("Figure_2019_node_degree_hist.jpg", width=10, height=6, units='in',res=1000)
+hist(deg_19, breaks=1:vcount(net_2019_ts)-1, xlab="Node Degree", ylab="Frequency", col="#ff9d00", main="Histogram of node degree for Year 2019")
+#hist(deg_19, breaks=30, xlab="Node Degree", ylab="Frequency", xlim=c(0,210), main="Histogram of node degree for Year 2019")
+dev.off()
+```
+
+
+## v) Plot time series data from 2005 to 2019 (rescaled node size and different link width)
+
+```{r q_plot_4_rescale_link_width, echo=TRUE}
+increase_rate_19 = links_ts_2019$increase_rate_2015_2019
+quantile(increase_rate_19, c(0.1, .3, .5, .6, .7, .8, .9, .95, .99, 1))
+increase_rate_15 = links_ts_2015$increase_rate_2010_2015
+quantile(increase_rate_15, c(0.1, .3, .5, .6, .7, .8, .9, .95, .99, 1)) 
+increase_rate_10 = links_ts_2010$increase_rate_2005_2010
+quantile(increase_rate_10, c(0.1, .3, .5, .6, .7, .8, .9, .95, .99, 1)) 
+increase_rate_05 = links_ts_2005$increase_rate_2000_2005
+quantile(increase_rate_05, c(0.1, .3, .5, .6, .7, .8, .9, .95, .99, 1)) 
+```
+
+```{r q_plot_4_1, echo=TRUE}
+# 2005
+# edge
+# set edge width
+E(net_2005_ts)$width <- E(net_2005_ts)$Rescale_link_width
+
+# set arrow size and edge color
+#E(net_2005_ts)$arrow.size <- 0.05
+E(net_2005_ts)$arrow.mode <- 0 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_Time_Series_rescaledlinks_2005_kk.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2005
+plot(net_2005_ts, layout = layout_with_kk, main = "2005")
+
+
+# Add a legend
+#legend("topright", legend=levels(as.factor(V(net_2005_ts)$UN_Region)), col = colrs , bty = "n", pch=20 , pt.cex #= 0.9, cex = .4, text.col=colrs , horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+
+
+
+# 2010
+# edge
+# set edge width
+E(net_2010_ts)$width <- E(net_2010_ts)$Rescale_link_width
+
+# set arrow size and edge color
+#E(net_2005_ts)$arrow.size <- 0.05
+E(net_2010_ts)$arrow.mode <- 0 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_Time_Series_rescaledlinks_2010_kk.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2005
+plot(net_2005_ts, layout = layout_with_kk, main = "2010")
+
+
+# Add a legend
+#legend("topright", legend=levels(as.factor(V(net_2005_ts)$UN_Region)), col = colrs , bty = "n", pch=20 , pt.cex #= 0.9, cex = .4, text.col=colrs , horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+
+
+# 2015
+# edge
+# set edge width
+E(net_2015_ts)$width <- E(net_2015_ts)$Rescale_link_width
+
+# set arrow size and edge color
+#E(net_2005_ts)$arrow.size <- 0.05
+E(net_2015_ts)$arrow.mode <- 0 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_Time_Series_rescaledlinks_2015_kk.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2005
+plot(net_2015_ts, layout = layout_with_kk, main = "2015")
+
+
+# Add a legend
+#legend("topright", legend=levels(as.factor(V(net_2005_ts)$UN_Region)), col = colrs , bty = "n", pch=20 , pt.cex #= 0.9, cex = .4, text.col=colrs , horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+
+
+# 2019
+# edge
+# set edge width
+E(net_2019_ts)$width <- E(net_2019_ts)$Rescale_link_width
+
+# set arrow size and edge color
+#E(net_2005_ts)$arrow.size <- 0.05
+E(net_2019_ts)$arrow.mode <- 0 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_Time_Series_rescaledlinks_2019_kk.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2019
+plot(net_2019_ts, layout = layout_with_kk, main = "2019")
+
+
+# Add a legend
+#legend("topright", legend=levels(as.factor(V(net_2005_ts)$UN_Region)), col = colrs , bty = "n", pch=20 , pt.cex #= 0.9, cex = .4, text.col=colrs , horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+## VisNetwork Plot all countries
+
+
+```{r q_network3D_all_2005, echo=TRUE}
+columnslist <- c("Country", "Country", "UN_Region", "Rescale_weight")
+nodes_vis <- new_nodes_2019[columnslist]
+colnames(nodes_vis) <- c("id", "label", "group", "value")
+head(nodes_vis)
+
+edges_vis <- new_links_2019[, c("Origin", "Destination", "increase_rate_2015_2019")]
+colnames(edges_vis) <- c("from", "to", "weight")
+
+visNetwork(nodes_vis, edges_vis) %>% 
+  visIgraphLayout(layout = "layout_with_kk")  %>% 
+  visLegend()
+```
+
+```{r plot_2005_stat_check, echo=TRUE}
+links_2005_wonly
+increase_rate = links_2005_wonly$increase_rate_2000_2005
+quantile(increase_rate, c(0.1, .3, .5, .6, .7, .8, .9, .95, .99)) 
+# sort link df by increase_rate_2000_2005
+sort1 <- links_2005_wonly[order(-links_2005_wonly$increase_rate_2000_2005),]
+sort1
+
+# check nodes size
+node_size_05 <- nodes$Influenza2005
+quantile(node_size_05, c(0.1, .3, .5, .6, .7, .8, .9, .95, .99)) 
+```
+
+
+#### ii) 2005 single plot (rescale node size)
+
+```{r plot_2005_rescale_df, echo=TRUE}
+# check nodes size
+node_size_05 <- nodes$Influenza2005
+quantile(node_size_05, c(0.1, .3, .5, .6, .7, .8, .9, .95, .99)) 
+# sort link df by increase_rate_2000_2005
+sort_node_size <- nodes[order(-nodes$Influenza2005),]
+sort_node_size
+
+# rescale node sizes to range (0, 1)
+nodes$Rescale2005 <- rescale(x = nodes$Influenza2005, to = c(0, 1), from = range(x = nodes$Influenza2005, na.rm = TRUE, finite = TRUE))
+sort_node_size_rescale <- nodes[order(-nodes$Rescale2005),]
+sort_node_size_rescale
+
+# Create an igraph object
+net_2005_rescale <- graph_from_data_frame(d=links_2005_wonly, vertices=nodes, directed=T) 
+
+edge.start <- ends(net_2005_rescale, es=E(net_2005_rescale), names=F)[,1]
+edge.start
+```
+
+```{r q_plot_2005_3, echo=TRUE}
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+
+#colrs <- c("black", "red", "green3", "blue", "cyan", "magenta", "yellow")
+#V(net_2005_rescale)$color <- as.numeric(as.factor(V(net_2005_rescale)$UN_Region))
+
+# node size
+V(net_2005_rescale)$size <- V(net_2005_rescale)$Rescale2005*20
+
+# node color
+# Make a palette of 3 colors
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2") 
+# Create a vector of color
+my_color <- colrs[as.numeric(as.factor(V(net_2005_rescale)$UN_Region))]
+
+V(net_2005_rescale)$color <- my_color
+V(net_2005_rescale)$frame.color <- "white"
+
+
+V(net_2005_rescale)$label.color <- 'black'
+V(net_2005_rescale)$label <- NA
+
+# edge
+# set edge width based on weight
+E(net_2005_rescale)$width <- 0.2
+
+# set arrow size and edge color
+E(net_2005_rescale)$arrow.size <- 0.1
+E(net_2005_rescale)$arrow.mode <- 1 # since the largest weight is 16780, here I set all weights equal to 1
+
+# edge color
+E(net_2005_rescale)$edge.color <- V(net_2005_rescale)$color[edge.start]
+
+# delete edges that are minor
+#cut.off <- mean(E(net_2005)$increase_rate_2000_2005) ## set a cut.off value
+#net_sparse <- delete_edges(net_2005, E(net_2005)[increase_rate_2000_2005<cut.off]) ## save a new network with short contacts deleted
+
+# plot fr
+plot(net_2005_rescale, layout = layout_with_fr, main = "2005 node size rescaled")
+
+# Add a legend
+legend("topright", legend=levels(as.factor(V(net_2005_rescale)$UN_Region)), col = colrs , bty = "n", pch=20 , pt.cex = .7, cex = .7, text.col=colrs , horiz = FALSE, inset = c(0.1, 0.1))
+
+# reference: group color https://www.r-graph-gallery.com/249-igraph-network-map-a-color.html
+# reference: figure size https://www.stat.auckland.ac.nz/~ihaka/787/lectures-layouts.pdf
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
