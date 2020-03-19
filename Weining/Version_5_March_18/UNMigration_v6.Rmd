@@ -1,7 +1,7 @@
 ---
 title: "UN Migration Data - Version 5"
 author: "Winnie Hu"
-date: "3/11/2020"
+date: "3/18/2020"
 output:
   html_document:
     toc: yes
@@ -29,8 +29,8 @@ library(visNetwork)
 # Load Data
 
 ```{r q1, echo=TRUE}
-setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration/Version_3_March_5")
-nodes <- read.csv("CountryNodes_Influenza232_updated.csv", header=T, as.is=T)
+setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration/Version_5_March_18")
+nodes <- read.csv("CountryNodes_All.csv", header=T, as.is=T)
 links <- read.csv("EdgeList_All.csv", header=T, as.is=T)
 ```
 
@@ -48,6 +48,8 @@ no_UN_region <- length(unique(nodes$UN_region))
 no_region
 no_UN_region
 ```
+
+## ii) Influenza data EDA
 
 ```{r q2_statistics, echo=FALSE}
 # 2005
@@ -69,6 +71,38 @@ mean(nodes$Influenza2015)
 nrow(nodes[!nodes$Influenza2019 == 0,])
 quantile(nodes$Influenza2019, c(0, 0.35, 0.5, .85, .95, 1))
 mean(nodes$Influenza2019)
+```
+
+## iii) Migration increase rate EDA
+
+```{r q2_statistics, echo=FALSE}
+# 2005
+nrow(links)
+nrow(links[!links$increase_rate_2000_2005 == 0,])
+nrow(links[!links$increase_rate_2000_2005 == 0,]) / nrow(links)
+quantile(links$increase_rate_2000_2005, c(0, 0.35, 0.5, .85, .95, 1))
+mean(links$increase_rate_2000_2005)
+
+# 2010
+nrow(links)
+nrow(links[!links$increase_rate_2005_2010 == 0,])
+nrow(links[!links$increase_rate_2005_2010 == 0,]) / nrow(links)
+quantile(links$increase_rate_2005_2010, c(0, 0.35, 0.5, .85, .95, 1))
+mean(links$increase_rate_2005_2010)
+
+# 2015
+nrow(links)
+nrow(links[!links$increase_rate_2010_2015 == 0,])
+nrow(links[!links$increase_rate_2010_2015 == 0,]) / nrow(links)
+quantile(links$increase_rate_2010_2015, c(0, 0.35, 0.5, .85, .95, 1))
+mean(links$increase_rate_2010_2015)
+
+# 2015
+nrow(links)
+nrow(links[!links$increase_rate_2015_2019 == 0,])
+nrow(links[!links$increase_rate_2015_2019 == 0,]) / nrow(links)
+quantile(links$increase_rate_2015_2019, c(0, 0.35, 0.5, .85, .95, 1))
+mean(links$increase_rate_2015_2019)
 ```
 
 # Plot
@@ -146,10 +180,6 @@ dev.off()
 ## ii) plot 2019 top 15 countries
 
 ```{r plot_2019_stat, echo=TRUE}
-setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration/Version_3_March_5")
-nodes <- read.csv("CountryNodes_Influenza232_updated.csv", header=T, as.is=T)
-links <- read.csv("EdgeList_All.csv", header=T, as.is=T)
-
 ### create links dataset (destination only includes top 15 countries)
 # select columns
 columnsfor2019 <- c("Origin", "Destination", "increase_rate_2015_2019")
@@ -160,21 +190,23 @@ links_2019_wonly <-links_2019[!(links_2019$increase_rate_2015_2019 == 0),]
 links_2019_wonly <-links_2019_wonly[!(links_2019_wonly$increase_rate_2015_2019 < 0),]
 #head(links_2019_wonly)
 
-# retain observations where destination countries are the top 15
+# retain observations where destination countries are the top 15 countries
 top_15_countries <- c("China", "Republic of Korea", "Iran (Islamic Republic of)", "Italy", "Japan", "France", "Germany", "Spain", "United States of America", "Switzerland", "Norway", "Denmark", "Netherlands", "Sweden", "United Kingdom")
-new_links_2019 <- links_2019_wonly[links_2019_wonly$Destination %in% top_15_countries, ]
-#top_6_countries <- c("Italy", "Japan", "Republic of Korea")
-#new_links_2019 <- links_2019_wonly[links_2019_wonly$Destination %in% top_6_countries, ]
+#new_links_2019 <- links_2019_wonly[links_2019_wonly$Destination %in% top_15_countries, ]
+
+top_3_countries <- c("Italy", "China", "Iran (Islamic Republic of)")
+new_links_2019 <- links_2019_wonly[links_2019_wonly$Destination %in% top_3_countries, ]
 new_links_2019
 
 # check the number of unique countries in destination
-unique_c <- unique(new_links_2019$Destination)
+unique_c <- unique(top_3_countries)
 length(unique_c) # Iran is missing because its migration increase rate was 0 or negative
 
 ### create nodes dataset (distinct countries in the links dataset and the top-15 countries)
 unique_o <- unique(new_links_2019$Origin)
-#unique_o
-dele_countries <- setdiff(nodes$Country, unique_o)
+unique_union <- union(unique_c, unique_o)
+
+dele_countries <- setdiff(nodes$Country, unique_union)
 
 # delete rows that contain country names in dele_countries since these countries are not in the links dataset
 new_nodes <- nodes[!nodes$Country %in% dele_countries, ]
@@ -186,7 +218,7 @@ columnsfornodes <- c("Country", "UN_Region", "Influenza2019")
 new_nodes_2019 <- new_nodes[columnsfornodes]
 
 # rescale node sizes to range (0, 1)
-new_nodes_2019$Rescale_weight <- rescale(x = new_nodes_2019$Influenza2019, to = c(3, 10), from = range(x = new_nodes_2019$Influenza2019, na.rm = TRUE, finite = TRUE))
+new_nodes_2019$Rescale_weight <- rescale(x = new_nodes_2019$Influenza2019, to = c(4, 20), from = range(x = new_nodes_2019$Influenza2019, na.rm = TRUE, finite = TRUE))
 
 new_nodes_2019
 ```
@@ -201,7 +233,7 @@ par(mai=c(0.1, 0.1, 0.2, 0.1))
 
 
 # node size
-V(net_2019)$size <- V(net_2019)$Rescale_weight*2
+V(net_2019)$size <- V(net_2019)$Rescale_weight
 
 # node color
 # Make a palette of 3 colors
@@ -225,17 +257,20 @@ E(net_2019)$width <- 0.1
 
 # set arrow size and edge color
 E(net_2019)$arrow.size <- 0.05
-E(net_2019)$arrow.mode <- 2 # 2 for forward arraw from Origin to Destination (1 for backward) 
+E(net_2019)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
 
 #pdf("plot.pdf",width=11, height=8.5, family="Helvetica", pointsize=11)
 #png("plot.png", width=5000, height=5000)
-jpeg("Figure_2019_top_15_lgl.jpg", width=10, height=6, units='in',res=1000)
+jpeg("Figure_2019_top_3_kk.jpg", width=10, height=6, units='in',res=1000)
 
 # set seed
-set.seed(1234)
+set.seed(126)
 
 # plot fr
-plot(net_2019, layout = layout_with_lgl, main = "2019 migration increase rate vs influenza cases (Top 15 Covid-19 Countries) (layout_with_lgl)")
+l <- layout_with_kk(net_2019)
+l <- norm_coords(l, ymin=-1, ymax=1, xmin=-1, xmax=1)
+
+plot(net_2019, rescale=F, layout = l * 0.8, main = "2019 migration increase rate vs influenza cases (Top 3 Covid-19 Countries) (layout_with_kk)")
 
 # Add a legend
 legend("topright", legend=levels(as.factor(V(net_2019)$UN_Region)), col = colrs , bty = "n", pch=20 , pt.cex = 0.9, cex = .4, text.col=colrs , horiz = FALSE, inset = c(0.1, 0.1))
@@ -245,6 +280,23 @@ dev.off()
 # reference: group color https://www.r-graph-gallery.com/249-igraph-network-map-a-color.html
 # reference: figure size https://www.stat.auckland.ac.nz/~ihaka/787/lectures-layouts.pdf
 # reference: increase plot resolution https://christinaslisrant.scientopia.org/2015/02/12/exporting-high-resolution-graphs-from-rstudio/
+```
+
+```{r plot_selective_countries_analysis, echo=TRUE}
+links_2019_China <- links[links$Destination == 'China',]
+china_flow_2019 <- sum(links_2019_China$flow2019)
+china_flow_2019
+
+links_2019_Italy <- links[links$Destination == 'Italy',]
+Italy_flow_2019 <- sum(links_2019_Italy$flow2019)
+Italy_flow_2019
+
+links_2019_Iran <- links[links$Destination == 'Iran (Islamic Republic of)',]
+Iran_flow_2019 <- sum(links_2019_Iran$flow2019)
+Iran_flow_2019
+
+nodes[nodes$Country == 'Italy', ]
+nodes[nodes$Country == 'China', ]
 ```
 
 ## iii) Plot time series data from 2005 to 2019 (rescaled node size and same link width)
@@ -360,10 +412,10 @@ E(net_2005_ts)$arrow.mode <- 0 # 2 for forward arraw from Origin to Destination 
 # set seed
 set.seed(1234)
 
-jpeg("Figure_Time_Series_2005_fr.jpg", width=10, height=6, units='in',res=1000)
+jpeg("Figure_Time_Series_2005_lgl.jpg", width=10, height=6, units='in',res=1000)
 
 # plot 2005
-plot(net_2005_ts, layout = layout_with_fr, main = "2005")
+plot(net_2005_ts, layout = layout_with_lgl, main = "2005")
 
 
 # Add a legend
@@ -407,10 +459,10 @@ E(net_2010_ts)$width <- 0.1
 #E(net_2019_all)$arrow.size <- 0.05
 E(net_2010_ts)$arrow.mode <- 0 # 2 for forward arraw from Origin to Destination (1 for backward) 
 
-jpeg("Figure_Time_Series_2010_fr.jpg", width=10, height=6, units='in',res=1000)
+jpeg("Figure_Time_Series_2010_lgl.jpg", width=10, height=6, units='in',res=1000)
 
 # plot 2005
-plot(net_2010_ts, layout = layout_with_fr, main = "2010")
+plot(net_2010_ts, layout = layout_with_lgl, main = "2010")
 
 dev.off()
 ```
@@ -449,10 +501,10 @@ E(net_2015_ts)$width <- 0.1
 #E(net_2019_all)$arrow.size <- 0.05
 E(net_2015_ts)$arrow.mode <- 0 # 2 for forward arraw from Origin to Destination (1 for backward) 
 
-jpeg("Figure_Time_Series_2015_fr.jpg", width=10, height=6, units='in',res=1000)
+jpeg("Figure_Time_Series_2015_lgl.jpg", width=10, height=6, units='in',res=1000)
 
 # plot 2015
-plot(net_2015_ts, layout = layout_with_fr, main = "2015")
+plot(net_2015_ts, layout = layout_with_lgl, main = "2015")
 
 dev.off()
 ```
@@ -491,10 +543,10 @@ E(net_2019_ts)$width <- 0.1
 #E(net_2019_all)$arrow.size <- 0.05
 E(net_2019_ts)$arrow.mode <- 0 # 2 for forward arraw from Origin to Destination (1 for backward) 
 
-jpeg("Figure_Time_Series_2019_fr.jpg", width=10, height=6, units='in',res=1000)
+jpeg("Figure_Time_Series_2019_lgl.jpg", width=10, height=6, units='in',res=1000)
 
 # plot 2019
-plot(net_2019_ts, layout = layout_with_fr, main = "2019")
+plot(net_2019_ts, layout = layout_with_lgl, main = "2019")
 
 dev.off()
 ```
