@@ -1,0 +1,758 @@
+---
+title: "UN Migration Data - Version 7"
+author: "Winnie Hu"
+date: "3/24/2020"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    code_folding: show
+always_allow_html: yes
+autosize: True
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(igraph)
+library(formattable)
+library(ggplot2)
+library(DT)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(tibble)
+library(networkD3)
+library(visNetwork)
+```
+
+# Load Data
+
+```{r q1, echo=TRUE}
+setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration/Version_6_March_24")
+nodes <- read.csv("CountryNodes_All.csv", header=T, as.is=T)
+links <- read.csv("EdgeList_All.csv", header=T, as.is=T)
+```
+
+# Examine Data
+
+## i) Nodes and Links
+
+```{r q2, echo=FALSE}
+nodes
+links
+```
+
+
+# Plot
+
+## i) rescale all links and node sizes across all yearly data
+
+```{r plot_rescale, echo=TRUE}
+### rescale the node size across all yearly data
+# select columns for forming the new nodes df
+columnsforts <- c("Country", "Country", "UN_Region", "Influenza2005", "Influenza2010",  "Influenza2015",  "Influenza2019")
+nodes_ts <- nodes[columnsforts]
+names(nodes_ts)[2] <- "Label" # rename "country.1" to "Country_Name_Label"
+#nodes_ts
+
+# recale the entire nodes df
+# find the largest and smallest nodes value
+colMax <- function(data) sapply(data, max, na.rm = TRUE)
+#colMax(nodes_ts)
+colMin <- function(data) sapply(data, min, na.rm = TRUE)
+#colMin(nodes_ts)
+# rescale the entire time series nodes df
+# 2019
+nodes_ts$Rescale_Inf2019 <- rescale(x = nodes_ts$Influenza2019, to = c(5, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+# 2015
+nodes_ts$Rescale_Inf2015 <- rescale(x = nodes_ts$Influenza2015, to = c(5, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+# 2010
+nodes_ts$Rescale_Inf2010 <- rescale(x = nodes_ts$Influenza2010, to = c(5, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+# 2005
+nodes_ts$Rescale_Inf2005 <- rescale(x = nodes_ts$Influenza2005, to = c(5, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+#nodes_ts
+
+### create links df for each year
+# 2019
+colsts2019 <- c("Origin", "Destination", "increase_rate_2015_2019")
+links_ts_2019 <- links[colsts2019]
+# remove links with 0 weight and negative weight
+links_ts_2019 <-links_ts_2019[!(links_ts_2019$increase_rate_2015_2019 == 0),]
+links_ts_2019 <-links_ts_2019[!(links_ts_2019$increase_rate_2015_2019 < 0),]
+# rescale links width across all four years' data
+links_ts_2019$Rescale_link_width <- rescale(x = links_ts_2019$increase_rate_2015_2019, to = c(0.2, 2), from = range(x = links_ts_2005$increase_rate_2000_2005), na.rm = TRUE, finite = TRUE) # the largest increase rate was 167800 in 2005 
+
+# 2015
+colsts2015 <- c("Origin", "Destination", "increase_rate_2010_2015")
+links_ts_2015 <- links[colsts2015]
+# remove links with 0 weight and negative weight
+links_ts_2015 <-links_ts_2015[!(links_ts_2015$increase_rate_2010_2015 == 0),]
+links_ts_2015 <-links_ts_2015[!(links_ts_2015$increase_rate_2010_2015 < 0),]
+# rescale links width across all four years' data
+links_ts_2015$Rescale_link_width <- rescale(x = links_ts_2015$increase_rate_2010_2015, to = c(0.2, 2), from = range(x = links_ts_2005$increase_rate_2000_2005), na.rm = TRUE, finite = TRUE)
+
+# 2010
+colsts2010 <- c("Origin", "Destination", "increase_rate_2005_2010")
+links_ts_2010 <- links[colsts2010]
+# remove links with 0 weight and negative weight
+links_ts_2010 <-links_ts_2010[!(links_ts_2010$increase_rate_2005_2010 == 0),]
+links_ts_2010 <-links_ts_2010[!(links_ts_2010$increase_rate_2005_2010 < 0),]
+# rescale links width across all four years' data
+links_ts_2010$Rescale_link_width <- rescale(x = links_ts_2010$increase_rate_2005_2010, to = c(0.2, 2), from = range(x = links_ts_2005$increase_rate_2000_2005), na.rm = TRUE, finite = TRUE)
+
+# 2005
+colsts2005 <- c("Origin", "Destination", "increase_rate_2000_2005")
+links_ts_2005 <- links[colsts2005]
+# remove links with 0 weight and negative weight
+links_ts_2005 <-links_ts_2005[!(links_ts_2005$increase_rate_2000_2005 == 0),]
+links_ts_2005 <-links_ts_2005[!(links_ts_2005$increase_rate_2000_2005 < 0),]
+# rescale links width across all four years' data
+links_ts_2005$Rescale_link_width <- rescale(x = links_ts_2005$increase_rate_2000_2005, to = c(0.2, 2), from = range(x = links_ts_2005$increase_rate_2000_2005), na.rm = TRUE, finite = TRUE)
+
+
+# reference: find the max of a df https://stackoverflow.com/questions/10997444/how-to-find-highest-value-in-a-data-frame/38958839
+
+```
+
+## ii) plot 2005 - 2019: select links that immigration increase rate is greater than X%
+
+
+```{r q_plot_2019_1, echo=TRUE}
+# 2019
+# select rows where the increase rate is > 50% of the data
+links_19_greater_than_x_pct <- links_ts_2019[links_ts_2019$increase_rate_2015_2019 > 300, ]
+
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# 2019
+# create igraph object
+net_19_links_greater_than_x_pct <- graph_from_data_frame(d=links_19_greater_than_x_pct, vertices = nodes_ts, directed=T)
+
+# node size
+V(net_19_links_greater_than_x_pct)$size <- V(net_19_links_greater_than_x_pct)$Rescale_Inf2019
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2") 
+my_color <- colrs[as.numeric(as.factor(V(net_19_links_greater_than_x_pct)$UN_Region))]
+V(net_19_links_greater_than_x_pct)$color <- my_color
+V(net_19_links_greater_than_x_pct)$frame.color <- "white"
+V(net_19_links_greater_than_x_pct)$frame.size <- 0.1
+
+
+V(net_19_links_greater_than_x_pct)$label.color <- 'black'
+V(net_19_links_greater_than_x_pct)$label <- V(net_19_links_greater_than_x_pct)$Label
+V(net_19_links_greater_than_x_pct)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_19_links_greater_than_x_pct)$width <- E(net_19_links_greater_than_x_pct)$Rescale_link_width
+
+# set arrow size and edge color
+E(net_19_links_greater_than_x_pct)$arrow.size <- 0.03
+E(net_19_links_greater_than_x_pct)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_links_greater_than_300_pct_2019_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2019
+plot(net_19_links_greater_than_x_pct, layout = layout_with_fr, main = "2019: Migration Increase Rate Greater Than 300%")
+
+dev.off()
+
+```
+
+```{r q_plot_2015, echo=TRUE}
+
+# select rows where the increase rate is > 50% of the data
+links_15_greater_than_x_pct <- links_ts_2015[links_ts_2015$increase_rate_2010_2015 > 300, ]
+
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# 2015
+# create igraph object
+net_15_links_greater_than_x_pct <- graph_from_data_frame(d=links_15_greater_than_x_pct, vertices = nodes_ts, directed=T)
+
+# node size
+V(net_15_links_greater_than_x_pct)$size <- V(net_15_links_greater_than_x_pct)$Rescale_Inf2015
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2") 
+my_color <- colrs[as.numeric(as.factor(V(net_15_links_greater_than_x_pct)$UN_Region))]
+V(net_15_links_greater_than_x_pct)$color <- my_color
+V(net_15_links_greater_than_x_pct)$frame.color <- "white"
+V(net_15_links_greater_than_x_pct)$frame.size <- 0.1
+
+
+V(net_15_links_greater_than_x_pct)$label.color <- 'black'
+V(net_15_links_greater_than_x_pct)$label <- V(net_15_links_greater_than_x_pct)$Label
+V(net_15_links_greater_than_x_pct)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_15_links_greater_than_x_pct)$width <- E(net_15_links_greater_than_x_pct)$Rescale_link_width
+
+# set arrow size and edge color
+E(net_15_links_greater_than_x_pct)$arrow.size <- 0.03
+E(net_15_links_greater_than_x_pct)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_links_greater_than_300_pct_2015_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2019
+plot(net_15_links_greater_than_x_pct, layout = layout_with_fr, main = "2015: Migration Increase Rate Greater Than 300%")
+
+dev.off()
+
+```
+
+```{r q_plot_2010, echo=TRUE}
+
+# select rows where the increase rate is > 50% of the data
+links_10_greater_than_x_pct <- links_ts_2010[links_ts_2010$increase_rate_2005_2010 > 300, ]
+
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# 2010
+# create igraph object
+net_10_links_greater_than_x_pct <- graph_from_data_frame(d=links_10_greater_than_x_pct, vertices = nodes_ts, directed=T)
+
+# node size
+V(net_10_links_greater_than_x_pct)$size <- V(net_10_links_greater_than_x_pct)$Rescale_Inf2010
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2") 
+my_color <- colrs[as.numeric(as.factor(V(net_10_links_greater_than_x_pct)$UN_Region))]
+V(net_10_links_greater_than_x_pct)$color <- my_color
+V(net_10_links_greater_than_x_pct)$frame.color <- "white"
+V(net_10_links_greater_than_x_pct)$frame.size <- 0.1
+
+
+V(net_10_links_greater_than_x_pct)$label.color <- 'black'
+V(net_10_links_greater_than_x_pct)$label <- V(net_10_links_greater_than_x_pct)$Label
+V(net_10_links_greater_than_x_pct)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_10_links_greater_than_x_pct)$width <- E(net_10_links_greater_than_x_pct)$Rescale_link_width
+
+# set arrow size and edge color
+E(net_10_links_greater_than_x_pct)$arrow.size <- 0.03
+E(net_10_links_greater_than_x_pct)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_links_greater_than_300_pct_2010_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2010
+plot(net_10_links_greater_than_x_pct, layout = layout_with_fr, main = "2010: Migration Increase Rate Greater Than 300%")
+
+dev.off()
+
+```
+
+```{r q_plot_2005, echo=TRUE}
+
+# select rows where the increase rate is > 50% of the data
+links_05_greater_than_x_pct <- links_ts_2005[links_ts_2005$increase_rate_2000_2005 > 300, ]
+
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# 2005
+# create igraph object
+net_05_links_greater_than_x_pct <- graph_from_data_frame(d=links_05_greater_than_x_pct, vertices = nodes_ts, directed=T)
+
+# node size
+V(net_05_links_greater_than_x_pct)$size <- V(net_05_links_greater_than_x_pct)$Rescale_Inf2005
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2") 
+my_color <- colrs[as.numeric(as.factor(V(net_05_links_greater_than_x_pct)$UN_Region))]
+V(net_05_links_greater_than_x_pct)$color <- my_color
+V(net_05_links_greater_than_x_pct)$frame.color <- "white"
+V(net_05_links_greater_than_x_pct)$frame.size <- 0.1
+
+
+V(net_05_links_greater_than_x_pct)$label.color <- 'black'
+V(net_05_links_greater_than_x_pct)$label <- V(net_05_links_greater_than_x_pct)$Label
+V(net_05_links_greater_than_x_pct)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_05_links_greater_than_x_pct)$width <- E(net_05_links_greater_than_x_pct)$Rescale_link_width
+
+# set arrow size and edge color
+E(net_05_links_greater_than_x_pct)$arrow.size <- 0.03
+E(net_05_links_greater_than_x_pct)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_links_greater_than_300_pct_2005_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2005
+plot(net_05_links_greater_than_x_pct, layout = layout_with_fr, main = "2005: Migration Increase Rate Greater Than 300%")
+
+dev.off()
+
+```
+
+## iii) plot 2005 - 2019: select links that immigration increase rate is greater than X% & highlight nodes with different color
+
+In this section, nodes with largest influenza data are colored by gold. nodes with largest node degree are colored by blue. Nodes that are both largest indluenza country and largest node degree use red. Other nodes are colored in grey.
+
+### i) create a new feature in the country node csv that is used to record the node color.
+```{r q_plot_3_1, echo=TRUE}
+#### 2019
+### get the top 10 countries that have the largest influenza cases in 2019
+top_IC_19 <- nodes_ts[order(-nodes_ts$Influenza2019),]$Country[1:10]
+top_IC_19
+
+### get the top 10 countries that have the largest node degree in 2019
+# select rows where the increase rate is > X% of the data
+links_19_greater_than_x_pct <- links_ts_2019[links_ts_2019$increase_rate_2015_2019 > 200, ]
+# create igraph object
+net_19_links_greater_than_x_pct <- graph_from_data_frame(d=links_19_greater_than_x_pct, vertices = nodes_ts, directed=T)
+#deg_19 <- degree(net_19_links_greater_than_x_pct, mode="in")
+top_ND_19 <- sort(degree(net_19_links_greater_than_x_pct, mode="in"), decreasing = TRUE)[1:10] # careful with in and out.
+top_ND_19
+sequence <- c(1, 2, 3, 4, 5, 6, 7, 10)
+top_NDL_19 <- vector()
+for (val in sequence){
+  top_NDL_19 <- c(top_NDL_19, V(net_19_links_greater_than_x_pct)$Label[degree(net_19_links_greater_than_x_pct, mode = 'in') == top_ND_19[val]])
+}
+#top_NDL_19
+
+# get the nodes that are in both top_IR and top_NDL
+top_both_19 <- intersect(top_IC_19, top_NDL_19)
+top_both_19
+
+### assign color lables 
+# Others
+nodes_ts$Node_Color_19 <- "Others"
+# top countries by influenza cases
+for (val in top_IC_19){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_19 <- "Top Countries by influenza cases"
+}
+# top countries by in-node degree (number of links that have migration increase rate greater than X%)
+for (val in top_NDL_19){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_19 <- "Top Countries by in-node degree" 
+}
+# top countries by both
+for (val in top_both_19){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_19 <- "Top Countries that met both criteria" 
+}
+#nodes_ts
+```
+
+```{r q_plot_3_2, echo=TRUE}
+# 2019
+# select rows where the increase rate is > X% of the data
+links_19_greater_than_x_pct <- links_ts_2019[links_ts_2019$increase_rate_2015_2019 > 200, ]
+
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# 2019
+# create igraph object
+net_19_color <- graph_from_data_frame(d=links_19_greater_than_x_pct, vertices = nodes_ts, directed=T)
+
+# node size
+V(net_19_color)$size <- V(net_19_color)$Rescale_Inf2019
+
+# node color
+#library(RColorBrewer)
+#colrs  <- brewer.pal(4, "Set2") 
+colrs <- c("grey80", "gold", "blue", "red")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.4)
+my_color <- colrstr[as.numeric(as.factor(V(net_19_color)$Node_Color_19))]
+V(net_19_color)$color <- my_color
+V(net_19_color)$frame.color <- "white"
+V(net_19_color)$frame.size <- 0.1
+
+
+V(net_19_color)$label.color <- 'black'
+V(net_19_color)$label <- V(net_19_color)$Label
+V(net_19_color)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_19_color)$width <- E(net_19_color)$Rescale_link_width
+
+# set arrow size and edge color
+E(net_19_color)$arrow.size <- 0.03
+E(net_19_color)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_node_color_2019_200_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2019
+plot(net_19_color, layout = layout_with_fr, main = "2019: Migration Increase Rate Greater Than 200% (fr)")
+
+dev.off()
+
+# reference: color transparency http://www.kateto.net/wp-content/uploads/2016/04/Sunbelt%202016%20R%20Network%20Visualization%20Handout.pdf
+```
+
+```{r q_plot_3_2015, echo=TRUE}
+#### 2015
+### get the top 10 countries that have the largest influenza cases in 2015
+top_IC_15 <- nodes_ts[order(-nodes_ts$Influenza2015),]$Country[1:10]
+top_IC_15
+
+### get the top 10 countries that have the largest node degree in 2015
+# select rows where the increase rate is > X% of the data
+links_15_greater_than_x_pct <- links_ts_2015[links_ts_2015$increase_rate_2010_2015 > 200, ]
+# create igraph object
+net_15_links_greater_than_x_pct <- graph_from_data_frame(d=links_15_greater_than_x_pct, vertices = nodes_ts, directed=T)
+# get top nodes
+top_ND_15 <- sort(degree(net_15_links_greater_than_x_pct, mode="in"), decreasing = TRUE)[1:10] # careful with in and out.
+top_ND_15
+
+sequence <- c(1, 2, 3, 4, 6, 8, 10)
+top_NDL_15 <- vector()
+for (val in sequence){
+  top_NDL_15 <- c(top_NDL_15, V(net_15_links_greater_than_x_pct)$Label[degree(net_15_links_greater_than_x_pct, mode = 'in') == top_ND_15[val]])
+}
+top_NDL_15
+
+# get the nodes that are in both top_IR and top_NDL
+top_both_15 <- intersect(top_IC_15, top_NDL_15)
+top_both_15
+
+### assign color lables 
+# Others
+nodes_ts$Node_Color_15 <- "Others"
+# top countries by influenza cases
+for (val in top_IC_15){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_15 <- "Top Countries by influenza cases"
+}
+# top countries by in-node degree (number of links that have migration increase rate greater than X%)
+for (val in top_NDL_15){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_15 <- "Top Countries by in-node degree" 
+}
+# top countries by both
+for (val in top_both_15){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_15 <- "Top Countries that met both criteria" 
+}
+#nodes_ts
+
+
+# select rows where the increase rate is > X% of the data
+links_15_greater_than_x_pct <- links_ts_2015[links_ts_2015$increase_rate_2010_2015 > 200, ]
+
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# 2015
+# create igraph object
+net_15_color <- graph_from_data_frame(d=links_15_greater_than_x_pct, vertices = nodes_ts, directed=T)
+
+# node size
+V(net_15_color)$size <- V(net_15_color)$Rescale_Inf2015
+
+# node color
+#library(RColorBrewer)
+#colrs  <- brewer.pal(4, "Set2") 
+colrs <- c("grey80", "gold", "blue", "red")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.4)
+my_color <- colrstr[as.numeric(as.factor(V(net_15_color)$Node_Color_15))]
+V(net_15_color)$color <- my_color
+V(net_15_color)$frame.color <- "white"
+V(net_15_color)$frame.size <- 0.1
+
+
+V(net_15_color)$label.color <- 'black'
+V(net_15_color)$label <- V(net_19_color)$Label
+V(net_15_color)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_15_color)$width <- E(net_15_color)$Rescale_link_width
+
+# set arrow size and edge color
+E(net_15_color)$arrow.size <- 0.03
+E(net_15_color)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_node_color_2015_200_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2019
+plot(net_15_color, layout = layout_with_fr, main = "2015: Migration Increase Rate Greater Than 200% (fr)")
+
+dev.off()
+```
+
+```{r q_plot_3_2010, echo=TRUE}
+#### 2010
+### get the top 10 countries that have the largest influenza cases in 2010
+top_IC_10 <- nodes_ts[order(-nodes_ts$Influenza2010),]$Country[1:10]
+top_IC_10
+
+### get the top 10 countries that have the largest node degree in 2015
+# select rows where the increase rate is > X% of the data
+links_10_greater_than_x_pct <- links_ts_2010[links_ts_2010$increase_rate_2005_2010 > 200, ]
+# create igraph object
+net_10_links_greater_than_x_pct <- graph_from_data_frame(d=links_10_greater_than_x_pct, vertices = nodes_ts, directed=T)
+# get top nodes
+top_ND_10 <- sort(degree(net_10_links_greater_than_x_pct, mode="in"), decreasing = TRUE)[1:10] # careful with in and out.
+top_ND_10
+
+#sequence <- c(1, 2, 3, 4, 5, 7, 10)
+sequence <- c(1, 3, 5, 8, 9)
+
+top_NDL_10 <- vector()
+for (val in sequence){
+  top_NDL_10 <- c(top_NDL_10, V(net_10_links_greater_than_x_pct)$Label[degree(net_10_links_greater_than_x_pct, mode = 'in') == top_ND_10[val]])
+}
+#top_NDL_19
+
+# get the nodes that are in both top_IR and top_NDL
+top_both_10 <- intersect(top_IC_10, top_NDL_10)
+top_both_10
+
+### assign color lables 
+# Others
+nodes_ts$Node_Color_10 <- "Others"
+# top countries by influenza cases
+for (val in top_IC_10){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_10 <- "Top Countries by influenza cases"
+}
+# top countries by in-node degree (number of links that have migration increase rate greater than X%)
+for (val in top_NDL_10){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_10 <- "Top Countries by in-node degree" 
+}
+# top countries by both
+for (val in top_both_10){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_10 <- "Top Countries that met both criteria" 
+}
+#nodes_ts
+
+
+# select rows where the increase rate is > X% of the data
+links_10_greater_than_x_pct <- links_ts_2010[links_ts_2010$increase_rate_2005_2010 > 200, ]
+
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# 2010
+# create igraph object
+net_10_color <- graph_from_data_frame(d=links_10_greater_than_x_pct, vertices = nodes_ts, directed=T)
+
+# node size
+V(net_10_color)$size <- V(net_10_color)$Rescale_Inf2010
+
+# node color
+#library(RColorBrewer)
+#colrs  <- brewer.pal(4, "Set2") 
+colrs <- c("grey80", "gold", "blue", "red")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.4)
+my_color <- colrstr[as.numeric(as.factor(V(net_10_color)$Node_Color_10))]
+V(net_10_color)$color <- my_color
+V(net_10_color)$frame.color <- "white"
+V(net_10_color)$frame.size <- 0.1
+
+
+V(net_10_color)$label.color <- 'black'
+V(net_10_color)$label <- V(net_10_color)$Label
+V(net_10_color)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_10_color)$width <- E(net_10_color)$Rescale_link_width
+
+# set arrow size and edge color
+E(net_10_color)$arrow.size <- 0.03
+E(net_10_color)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_node_color_2010_200_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2010
+plot(net_10_color, layout = layout_with_fr, main = "2010: Migration Increase Rate Greater Than 200% (fr)")
+
+dev.off()
+```
+
+
+```{r q_plot_3_2005, echo=TRUE}
+#### 2005
+### get the top 10 countries that have the largest influenza cases in 2010
+top_IC_05 <- nodes_ts[order(-nodes_ts$Influenza2005),]$Country[1:10]
+top_IC_05
+
+### get the top 10 countries that have the largest node degree in 2015
+# select rows where the increase rate is > X% of the data
+links_05_greater_than_x_pct <- links_ts_2005[links_ts_2005$increase_rate_2000_2005 > 200, ]
+# create igraph object
+net_05_links_greater_than_x_pct <- graph_from_data_frame(d=links_05_greater_than_x_pct, vertices = nodes_ts, directed=T)
+# get top nodes
+top_ND_05 <- sort(degree(net_05_links_greater_than_x_pct, mode="in"), decreasing = TRUE)[1:10] # careful with in and out.
+top_ND_05
+
+#sequence <- c(1, 2, 3, 4, 5, 6, 7, 9)
+sequence <- c(1, 2, 3, 4, 5, 6, 7, 8, 9)
+top_NDL_05 <- vector()
+for (val in sequence){
+  top_NDL_05 <- c(top_NDL_05, V(net_05_links_greater_than_x_pct)$Label[degree(net_05_links_greater_than_x_pct, mode = 'in') == top_ND_05[val]])
+}
+#top_NDL_05
+
+# get the nodes that are in both top_IR and top_NDL
+top_both_05 <- intersect(top_IC_05, top_NDL_05)
+top_both_05
+
+### assign color lables 
+# Others
+nodes_ts$Node_Color_05 <- "Others"
+# top countries by influenza cases
+for (val in top_IC_05){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_05 <- "Top Countries by influenza cases"
+}
+# top countries by in-node degree (number of links that have migration increase rate greater than X%)
+for (val in top_NDL_05){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_05 <- "Top Countries by in-node degree" 
+}
+# top countries by both
+for (val in top_both_05){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_05 <- "Top Countries that met both criteria" 
+}
+#nodes_ts
+
+
+# select rows where the increase rate is > X% of the data
+links_05_greater_than_x_pct <- links_ts_2005[links_ts_2005$increase_rate_2000_2005 > 200, ]
+
+# set figure size
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+
+# 2010
+# create igraph object
+net_05_color <- graph_from_data_frame(d=links_05_greater_than_x_pct, vertices = nodes_ts, directed=T)
+
+# node size
+V(net_05_color)$size <- V(net_05_color)$Rescale_Inf2005
+
+# node color
+#library(RColorBrewer)
+#colrs  <- brewer.pal(4, "Set2") 
+colrs <- c("grey80", "gold", "blue", "red")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.4)
+my_color <- colrstr[as.numeric(as.factor(V(net_05_color)$Node_Color_05))]
+V(net_05_color)$color <- my_color
+V(net_05_color)$frame.color <- "white"
+V(net_05_color)$frame.size <- 0.1
+
+
+V(net_05_color)$label.color <- 'black'
+V(net_05_color)$label <- V(net_10_color)$Label
+V(net_05_color)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_05_color)$width <- E(net_05_color)$Rescale_link_width
+
+# set arrow size and edge color
+E(net_05_color)$arrow.size <- 0.03
+E(net_05_color)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+jpeg("Figure_node_color_2005_200_fr.jpg", width=10, height=6, units='in',res=1000)
+
+# plot 2010
+plot(net_05_color, layout = layout_with_fr, main = "2005: Migration Increase Rate Greater Than 200% (fr)")
+
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
