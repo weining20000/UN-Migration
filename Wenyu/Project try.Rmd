@@ -145,11 +145,61 @@ medge$Weight <- (medge$Weight19 - medge$Weight15)/medge$Weight15
 ```
 
 ```{r}
-medgef <- medge %>% filter(Destination == c("China", "Italy", "Japan", "Republic of Korea")) %>%
+medgef <- medge %>% filter(Destination == c("China", "Italy", "Japan", "Republic of Korea", "United States of America")) %>%
   #filter(Origin == c("China", "Italy", "Japan", "Dem. People's Republic of Korea")) %>%
   filter(Weight > 0)
 medgef <- medgef[c("Origin", "Destination", "Weight19", "Weight15", "Weight")]
 ```
+
+```{r}
+fullinfu <- read.csv("CountryNodes_Influenza232_updated.csv", header = T, as.is = T)
+```
+
+```{r}
+mnodeup <- fullinfu %>% select("Country", "UN_Region", "Influenza2019")
+selectedcoun <- medgef %>% select("Origin")
+a <- c("China", "United States of America", "Italy")
+#b <- as.character.default(selectedcoun)
+#gsub("\\", "", b)
+```
+
+```{r}
+mnodeup2 <- mnodeup[mnodeup$Country %in% medgef$Origin, ]
+```
+
+
+```{r}
+mnodeup <- fullinfu %>% select("Country", "UN_Region", "Influenza2019") %>% filter()
+  # filter(Country %in% c("China", "Italy", "Japan", "Republic of Korea","Australia", "China, Hong Kong SAR",
+  #                                       "Russian Federation", "Sri Lanka", "Thailand",
+  #                                       "United States of America", "Algeria", "Belarus",
+  #                                       "Bosnia and Herzegovina", "Brunei Darussalam", "Cabo Verde",
+  #                                       "Chile", "Colombia", "Costa Rica",
+  #                                       "Democratic Republic of the Congo","Dominican Republic",
+  #                                       "Equatorial Guinea", "Ethiopia", "Finland", "Gabon", "Ghana",
+  #                                       "Grenada", "Guinea", "India", "Ireland", "Latvia", "Libya",
+  #                                       "Madagascar", "Mali", "Mauritania", "Namibia", "Nigeria",
+  #                                       "Norway", "Philippines", "Romania", "Saint Kitts and Nevis",
+  #                                       "Samoa", "Senegal", "Singapore", "Solomon Islands", "Spain",
+  #                                       "Suriname", "Tajikistan", "Turkey", "Uganda",
+  #                                       "United Republic of Tanzania", "Uzbekistan", "Zimbabwe",
+  #                                       "Canada", "Germany", "Mexico", "Netherlands", "Peru",
+  #                                       "United Kingdom", "Viet Nam", "Cambodia", "France", "Indonesia",
+  #                                       "Armenia", "Behamas", "Belgium", "Bolivia", "Denmark", "Egypt",
+  #                                       "Gambia", "Greece", "Guatemala", "Israel", "Kazakhstan", 
+  #                                       "Lao People's Democratic Republic", "Marshall Islands", "Montserrat",
+  #                                       "Nicaragua", "Panama", "Poland", "Republic of Moldova", "Serbia",
+  #                                       "Trinidad and Tobago", "Venezuela (Bolivarian Republic of)","Zambia",
+  #                                       "Bolivia (Plurinational State of)", "Benin", "Bangladesh", "Bulgaria"
+  #                                       ))
+```
+
+
+
+
+
+
+
 
 ```{r}
 mnodef <- mnode %>% filter(Country %in% c("China", "Italy", "Japan", "Republic of Korea", 
@@ -167,13 +217,24 @@ mnodef <- mnode %>% filter(Country %in% c("China", "Italy", "Japan", "Republic o
                                         "Suriname", "Tajikistan", "Turkey", "Uganda",
                                         "United Republic of Tanzania", "Uzbekistan", "Zimbabwe",
                                         "Canada", "Germany", "Mexico", "Netherlands", "Peru",
-                                        "United Kingdom", "Viet Nam", "Cambodia", "France", "Indonesia"
+                                        "United Kingdom", "Viet Nam", "Cambodia", "France", "Indonesia",
+                                        "Armenia", "Behamas", "Belgium", "Bolivia", "Denmark", "Egypt",
+                                        "Gambia", "Greece", "Guatemala", "Israel", "Kazakhstan", 
+                                        "Lao People's Democratic Republic", "Marshall Islands", "Montserrat",
+                                        "Nicaragua", "Panama", "Poland", "Republic of Moldova", "Serbia",
+                                        "Trinidad and Tobago", "Venezuela (Bolivarian Republic of)",
+                                        "Zambia",
+                                        "Bolivia (Plurinational State of)", "Benin", "Bangladesh", "Bulgaria"
                                         ))
 ```
 
 ```{r}
-mnodef$cases <- 5
-mnodef$cases[c(10, 42, 28, 29)] <- c(122757, 271, 6361, 9525)
+mnodef$cases <- c(33,399,14002,723,287,0,0,430,0,0,544,0,311,43196,7371,122757,0,1316,505,53,11835,90,2339,0,214,196,
+                  25405,0,0,1215,1172,822,0,313,135,10422,296,4201,1796,6361,9525,525,590,1834,0,451,235,0,
+                  51,
+                  6963,0,0,5166,1419,89,22282,382,349,346,1786,1702,458,1801,19340,5,0,483,1876,1154,0,17232,
+                  486,173,30,1568,270,1433,179,42432,242,267384,22,39,355,426,0)
+#mnodef$cases[c(10, 42, 28, 29)] <- c(122757, 271, 6361, 9525)
 ```
 
 ```{r}
@@ -181,7 +242,7 @@ mnodef$cases[c(10, 42, 28, 29)] <- c(122757, 271, 6361, 9525)
 ## Plot  ##
 ###########
 # create new igraph object
-net_degree2 <- graph_from_data_frame(d=medgef, vertices=mnodef, directed=T)
+net_degree2 <- graph_from_data_frame(d=medgef, vertices=mnodeup2, directed=T)
 
 # # vertex color based on degree level
 #  vcol <- rep("snow2", vcount(net_degree2))     #deebf7 # assigned third degree very light blue to top 101 - 232 countries
@@ -193,12 +254,12 @@ net_degree2 <- graph_from_data_frame(d=medgef, vertices=mnodef, directed=T)
 V(net_degree2)$frame.color <- "black"
 
 # vertex label and size
-V(net_degree2)$label <- mnodef$Country
+V(net_degree2)$label <- mnodeup2$Country
 V(net_degree2)$label.cex <- 0.5
 V(net_degree2)$label.color <- "black"
 
 # Vertex size
-V(net_degree2)$size <- rescale(mnodef$cases, to = c(5,10))
+V(net_degree2)$size <- rescale(mnodeup2$Influenza2019, to = c(3,10))
   #mnodef$cases/2000
   #round((new_nodes$Degree)/16, 2)
 
@@ -212,7 +273,9 @@ E(net_degree2)$arrow.size <- .2
 l <- layout_with_fr(net_degree2)
 
 # plot
-par(mai=c(0,0,0.1,0.1))
+par(pin=c(5, 4))
+par(mai=c(0.1, 0.1, 0.2, 0.1))
+#par(mai=c(0,0,0.1,0.1))
 plot(net_degree2, layout = l, vertex.label = V(net_degree2)$label, 
        #ifelse(degree(net_degree2) > 300, V(net_degree2)$label, NA), 
      main="Network Graph with fr layout")
@@ -221,5 +284,50 @@ plot(net_degree2, layout = l, vertex.label = V(net_degree2)$label,
 
 ```{r}
 V(net_degree2)$size
+```
+
+
+
+```{r}
+net_degree2_1 <- graph_from_data_frame(d=medgef, vertices=mnodeup, directed=T)
+
+# # vertex color based on degree level
+#  vcol <- rep("snow2", vcount(net_degree2))     #deebf7 # assigned third degree very light blue to top 101 - 232 countries
+#  vcol[223:232] <- "skyblue1"                   #3182bd  #assign first degree dark blue to top ten countries
+#  vcol[123:222] <- "slategray1"                 #9ecae1 #assign second degree light blue to top 11-100 countries
+#  V(net_degree2)$color <- vcol
+
+# vertex frame color
+V(net_degree2_1)$frame.color <- "black"
+
+# vertex label and size
+V(net_degree2_1)$label <- mnodeup$Country
+V(net_degree2_1)$label.cex <- 0.5
+V(net_degree2_1)$label.color <- "black"
+
+# Vertex size
+V(net_degree2_1)$size <- rescale(mnodeup$Influenza2019, to = c(5, 10))
+  #mnodef$cases/2000
+  #round((new_nodes$Degree)/16, 2)
+
+# edge color and size
+E(net_degree2_1)$width <- medgef$Weight
+E(net_degree2_1)$color <- "gray80"
+E(net_degree2_1)$arrow.size <- .2
+#E(net_degree)$arrow.mode <- 1
+
+# layout
+l <- layout_with_fr(net_degree2_1)
+
+# plot
+par(mai=c(0,0,0.1,0.1))
+plot(net_degree2_1, layout = l, vertex.label = V(net_degree2_1)$label, 
+       #ifelse(degree(net_degree2) > 300, V(net_degree2)$label, NA), 
+     main="Network Graph with fr layout")
+
+```
+
+```{r}
+V(net_degree2_1)$size
 ```
 
