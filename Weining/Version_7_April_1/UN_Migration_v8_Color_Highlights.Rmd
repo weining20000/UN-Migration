@@ -1,0 +1,301 @@
+---
+title: "UN Migration Data - Version 8"
+author: "Winnie Hu"
+date: "3/31/2020"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    code_folding: show
+always_allow_html: yes
+autosize: True
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(igraph)
+library(formattable)
+library(ggplot2)
+library(DT)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(tibble)
+library(networkD3)
+library(visNetwork)
+```
+
+# Load Data
+
+```{r q1, echo=TRUE}
+setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration/Version_7_March_31")
+nodes <- read.csv("CountryNodes_All.csv", header=T, as.is=T)
+links <- read.csv("EdgeList_All.csv", header=T, as.is=T)
+```
+
+# Examine Data
+
+## i) Nodes and Links
+
+```{r q2, echo=FALSE}
+nodes
+links
+```
+
+# i) plot 2005 - 2019: using migration flow data rather than increase rate
+
+## i) rescale influenza case data
+```{r plot_rescale_yearlyinfluenzadata, echo=TRUE}
+### rescale the node size across all yearly data
+# select columns for forming the new nodes df
+columnsforts <- c("Country", "Country", "UN_Region", "Influenza2005", "Influenza2010",  "Influenza2015",  "Influenza2019")
+nodes_ts <- nodes[columnsforts]
+names(nodes_ts)[2] <- "Label" # rename "country.1" to "Country_Name_Label"
+#nodes_ts
+
+# recale the entire nodes df
+# find the largest and smallest nodes value
+colMax <- function(data) sapply(data, max, na.rm = TRUE)
+#colMax(nodes_ts)
+colMin <- function(data) sapply(data, min, na.rm = TRUE)
+#colMin(nodes_ts)
+
+# rescale the entire time series nodes df
+# 2019
+nodes_ts$Rescale_Inf2019 <- rescale(x = nodes_ts$Influenza2019, to = c(5, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+# 2015
+nodes_ts$Rescale_Inf2015 <- rescale(x = nodes_ts$Influenza2015, to = c(5, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+# 2010
+nodes_ts$Rescale_Inf2010 <- rescale(x = nodes_ts$Influenza2010, to = c(5, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+# 2005
+nodes_ts$Rescale_Inf2005 <- rescale(x = nodes_ts$Influenza2005, to = c(5, 28), from = range(x = nodes_ts$Influenza2019), na.rm = TRUE, finite = TRUE)
+#nodes_ts
+
+```
+
+
+## ii) rescale migration flow data
+
+```{r plot_rescale_yearlyflowdata, echo=TRUE}
+### create links df for each year
+# 2019
+colsflow2019 <- c("Origin", "Destination", "flow2019")
+links_flow_2019 <- links[colsflow2019]
+# remove links with 0 weight and negative weight
+links_flow_2019 <-  links_flow_2019[!(links_flow_2019$flow2019 == 0),]
+links_flow_2019 <-links_flow_2019[!(links_flow_2019$flow2019 < 0),]
+
+# 2015
+colsflow2015 <- c("Origin", "Destination", "flow2015")
+links_flow_2015 <- links[colsflow2015]
+# remove links with 0 weight and negative weight
+links_flow_2015 <- links_flow_2015[!(links_flow_2015$flow2015 == 0),]
+links_flow_2015 <- links_flow_2015[!(links_flow_2015$flow2015 < 0),]
+
+# 2010
+colsflow2010 <- c("Origin", "Destination", "flow2010")
+links_flow_2010 <- links[colsflow2010]
+# remove links with 0 weight and negative weight
+links_flow_2010 <- links_flow_2010[!(links_flow_2010$flow2010 == 0),]
+links_flow_2010 <- links_flow_2010[!(links_flow_2010$flow2010 < 0),]
+
+# 2005
+colsflow2005 <- c("Origin", "Destination", "flow2005")
+links_flow_2005 <- links[colsflow2005]
+# remove links with 0 weight and negative weight
+links_flow_2005 <- links_flow_2005[!(links_flow_2005$flow2005 == 0),]
+links_flow_2005 <- links_flow_2005[!(links_flow_2005$flow2005 < 0),]
+
+quantile(links_flow_2019$flow2019, c(0, 0.35, 0.5, .85, .95, 1))
+mean(links_flow_2019$flow2019)
+threshold2019 <- unname(quantile(links_flow_2019$flow2019, c(0.98)))
+
+quantile(links_flow_2015$flow2015, c(0, 0.35, 0.5, .85, .95, 1))
+mean(links_flow_2015$flow2015)
+threshold2015 <- unname(quantile(links_flow_2015$flow2015, c(0.98)))
+
+quantile(links_flow_2010$flow2010, c(0, 0.35, 0.5, .85, .95, 1))
+mean(links_flow_2010$flow2010)
+threshold2010 <- unname(quantile(links_flow_2010$flow2010, c(0.98)))
+
+quantile(links_flow_2005$flow2005, c(0, 0.35, 0.5, .85, .95, 1))
+mean(links_flow_2005$flow2005)
+threshold2005 <- unname(quantile(links_flow_2005$flow2005, c(0.98)))
+
+# remove links
+links_flow_2019 <- links_flow_2019[!(links_flow_2019$flow2019 < threshold2019),]
+links_flow_2015 <- links_flow_2015[!(links_flow_2015$flow2015 < threshold2015),]
+links_flow_2010 <- links_flow_2010[!(links_flow_2010$flow2010 < threshold2010),]
+links_flow_2005 <- links_flow_2005[!(links_flow_2005$flow2005 < threshold2005),]
+
+min_19 <- min(links_flow_2019$flow2019)
+min_15 <- min(links_flow_2015$flow2015)
+min_10 <- min(links_flow_2010$flow2010)
+min_05 <- min(links_flow_2005$flow2005)
+
+min_all <- min(c(min_19, min_15, min_10, min_05))
+min_all
+
+max_19 <- max(links_flow_2019$flow2019)
+max_15 <- max(links_flow_2015$flow2015)
+max_10 <- max(links_flow_2010$flow2010)
+max_05 <- max(links_flow_2005$flow2005)
+max_all <- max(c(max_19, max_15, max_10, max_05))
+max_all
+```
+
+```{r plot_rescale_yearlyflowdata_2, echo=TRUE}
+# 2010
+# rescale links width across all four years' data
+links_flow_2010$Rescaled_link_width <- rescale(x = links_flow_2010$flow2010, to = c(0.2, 2), from = c(min_all, max_all), na.rm = TRUE, finite = TRUE) # the largest migration flow (12,168,662) was from Mexico to US in 2010
+
+# 2019
+# rescale links width across all four years' data
+links_flow_2019$Rescaled_link_width <- rescale(x = links_flow_2019$flow2019, to = c(0.2, 2), from = c(min_all, max_all), na.rm = TRUE, finite = TRUE) 
+
+# 2015
+# rescale links width across all four years' data
+links_flow_2015$Rescaled_link_width <- rescale(x = links_flow_2015$flow2015, to = c(0.2, 2), from = c(min_all, max_all), na.rm = TRUE, finite = TRUE) 
+
+# 2005
+# rescale links width across all four years' data
+links_flow_2005$Rescaled_link_width <- rescale(x = links_flow_2005$flow2005, to = c(0.2, 2), from = c(min_all, max_all), na.rm = TRUE, finite = TRUE) 
+
+
+# reference: find the max of a df https://stackoverflow.com/questions/10997444/how-to-find-highest-value-in-a-data-frame/38958839
+
+```
+
+## iii) Plot: migration flow (x_percentile) vs influenza cases + color highlights (Year 2019)
+
+```{r q_plot_flow_2019, echo=TRUE}
+#### 2019
+### get the top 10 countries that have the largest influenza cases in 2019
+top_IC_19 <- nodes_ts[order(-nodes_ts$Influenza2015),]$Country[1:10]
+top_IC_19
+
+
+sum_19 = 0
+for (val in top_IC_19){
+  influenza_num <- nodes_ts[nodes_ts$Label == val, ]$Influenza2019
+  sum_19 <- sum_19 + influenza_num
+}
+sum_19
+inflluenza_pct <- sum_19 / sum(nodes_ts$Influenza2019)
+inflluenza_pct
+
+# get the top 10 countries that have the largest in-node degree in 2019
+net_flow_19 <- graph_from_data_frame(d=links_flow_2019, vertices = nodes_ts, directed=T)
+
+top_ND_19 <- sort(strength(net_flow_19, mode="in"), decreasing = TRUE)[1:10]
+#top_ND_19
+top_NDL_19 <- names(top_ND_19)
+top_NDL_19
+
+# get the nodes that are in both top_IR and top_NDL
+top_both_19 <- intersect(top_IC_19, top_NDL_19)
+#top_both_19
+
+
+### assign color lables 
+# Others
+nodes_ts$Node_Color_19 <- "Others"
+# top countries by influenza cases
+for (val in top_IC_19){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_19 <- "Top Countries by influenza cases"
+}
+# top countries by in-node strength (number of links that have migration increase rate greater than X%)
+for (val in top_NDL_19){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_19 <- "Top Countries by in-node degree" 
+}
+# top countries by both
+for (val in top_both_19){
+  nodes_ts[nodes_ts$Country == val,]$Node_Color_19 <- "Top Countries that met both criteria" 
+}
+#nodes_ts
+
+# set figure size
+par(pin=c(6, 6))
+par(mai=c(0.1, 0.1, 0.1, 0.1))
+
+# 2019
+# create igraph object
+net_flow_19_color <- graph_from_data_frame(d=links_flow_2019, vertices = nodes_ts, directed=T)
+
+# node size
+V(net_flow_19_color)$size <- V(net_flow_19_color)$Rescale_Inf2019
+
+# node color
+#library(RColorBrewer)
+#colrs  <- brewer.pal(4, "Set2") 
+colrs <- c("grey80", "gold", "blue", "red")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.4)
+my_color <- colrstr[as.numeric(as.factor(V(net_flow_19_color)$Node_Color_19))]
+V(net_flow_19_color)$color <- my_color
+V(net_flow_19_color)$frame.color <- "white"
+V(net_flow_19_color)$frame.size <- 0.1
+
+
+V(net_flow_19_color)$label.color <- 'black'
+V(net_flow_19_color)$label <- V(net_19_color)$Label
+V(net_flow_19_color)$label.cex = 0.15
+#vertex.label.family="sans"
+
+# edge
+# set edge width
+E(net_flow_19_color)$width <- E(net_flow_19_color)$Rescaled_link_width
+#E(net_flow_19_color)$width <- 0.1
+
+# set arrow size and edge color
+E(net_flow_19_color)$arrow.size <- 0.03
+E(net_flow_19_color)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1234)
+
+png("Figure_flow_98pctl_highlights_2019_fr.png", width=6, height=6, units='in',res=1000)
+
+plot(net_flow_19_color, layout = layout_with_fr)
+title("2019: Influenza Cases vs Migration Flows (98% percentile) (fr)", cex.main=1)
+
+# Add a legend
+legend("topright", legend=levels(as.factor(V(net_flow_19_color)$Node_Color_19)), col = colrstr, bty = "n", pch=16 , pt.cex = 0.7, cex = .3, text.col=colrs , horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
