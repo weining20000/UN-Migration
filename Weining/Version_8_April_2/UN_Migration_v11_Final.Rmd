@@ -1,0 +1,838 @@
+---
+title: "UN Migration Data - Version 11 - Top 100"
+author: "Winnie Hu"
+date: "4/7/2020"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    code_folding: show
+always_allow_html: yes
+autosize: True
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(igraph)
+library(formattable)
+library(ggplot2)
+library(DT)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(tibble)
+library(networkD3)
+library(visNetwork)
+library(tidyverse)
+```
+
+# Load Data
+
+```{r q_regional_data, echo=TRUE}
+setwd("C:/Users/Winnie/Documents/NeilJohnson/Migration/Version_9_April_7")
+nodes <- read.csv("CountryNodes_All.csv", header=T, as.is=T)
+links <- read.csv("EdgeList_All.csv", header=T, as.is=T)
+nodes
+links
+```
+
+# Plot 1: Time Series Plots from 2005 to 2019 fosuing on top 50 migration corridors
+
+### i) links dataframes
+
+```{r q_plot_2_link, echo=TRUE}
+## 2019
+linkcols19 <- c("Origin", "Destination", "flow2019")
+links19 <- links[linkcols19]
+links19_sort <- links19[order(-links19$flow2019),] # sort the dataframe by migration flow in 2019
+top_X_corridors_19 <- links19_sort[1:100,]  # get the top 100 migration corridors
+
+## 2015
+linkcols15 <- c("Origin", "Destination", "flow2015")
+links15 <- links[linkcols15]
+links15_sort <- links15[order(-links15$flow2015),] 
+top_X_corridors_15 <- links15_sort[1:100,] 
+
+## 2010
+linkcols10 <- c("Origin", "Destination", "flow2010")
+links10 <- links[linkcols10]
+links10_sort <- links10[order(-links10$flow2010),] 
+top_X_corridors_10 <- links10_sort[1:100,]
+
+## 2005
+linkcols05 <- c("Origin", "Destination", "flow2005")
+links05 <- links[linkcols05]
+links05_sort <- links05[order(-links05$flow2005),] 
+top_X_corridors_05 <- links05_sort[1:100,] 
+```
+
+### ii) nodes dataframes
+
+```{r q_plot_3_node, echo=TRUE}
+### 2019
+# show only nodes that appear in the top_X_corridors_19 dataframe
+# get the disctinct countries that appear in top_X_corridors_19
+destination19_set <- unique(top_X_corridors_19$Destination)
+origin19_set <- unique(top_X_corridors_19$Origin)
+union19_set <- union(destination19_set, origin19_set) # get the union of both vector
+
+# select rows from the nodes dataframe that contain only length(union19_set) countries
+nodecols19 <- c("Country", "Country", "Region", "UN_Region", "Influenza2019")
+nodes19 <- nodes[nodecols19]
+names(nodes19)[2] <- "Label"  # rename "Country.1" to "Label"
+nodes19 <- nodes19[nodes19$Country %in% union19_set, ]
+
+### create a variable that saves the total number of immigrants to a destination country
+num_immigrants_19 <- aggregate(top_X_corridors_19$flow2019, by = list(Category = top_X_corridors_19$Destination), FUN=sum)
+names(num_immigrants_19)[names(num_immigrants_19) == "x"] <- "Total_New_Immigrants_19"  # change column name 
+
+# add new rows
+setdiff19 <- setdiff(origin19_set, destination19_set)
+zero_immigrants_19 <- rep(0, length(setdiff19))
+df_new_19 <- data.frame(Category = setdiff19, Total_New_Immigrants_19 = zero_immigrants_19)
+num_immigrants_19 <- rbind(num_immigrants_19, df_new_19)
+names(num_immigrants_19)[names(num_immigrants_19) == "Category"] <- "Country"
+# join two dfs tgt
+nodes19 <- merge(nodes19, num_immigrants_19, by = "Country")
+nodes19
+
+
+
+### 2015
+# show only nodes that appear in the top_100_corridors_15 dataframe
+# get the disctinct country that appear in top_100_corridors_15
+destination15_set <- unique(top_X_corridors_15$Destination)
+origin15_set <- unique(top_X_corridors_15$Origin)
+union15_set <- union(destination15_set, origin15_set) # get the union of both vector
+
+# select rows from the nodes dataframe that contain only length(union15_set) countries
+nodecols15 <- c("Country", "Country", "Region", "UN_Region", "Influenza2015")
+nodes15 <- nodes[nodecols15]
+names(nodes15)[2] <- "Label"  # rename "Country.1" to "Label"
+nodes15 <- nodes15[nodes15$Country %in% union15_set, ]
+
+### create a variable that saves the total number of immigrants to a destination country
+num_immigrants_15 <- aggregate(top_X_corridors_15$flow2015, by = list(Category = top_X_corridors_15$Destination), FUN=sum)
+names(num_immigrants_15)[names(num_immigrants_15) == "x"] <- "Total_New_Immigrants_15"  # change column name
+
+# add new rows
+setdiff15 <- setdiff(origin15_set, destination15_set)
+zero_immigrants_15 <- rep(0, length(setdiff15))
+df_new_15 <- data.frame(Category = setdiff15, Total_New_Immigrants_15 = zero_immigrants_15)
+num_immigrants_15 <- rbind(num_immigrants_15, df_new_15)
+names(num_immigrants_15)[names(num_immigrants_15) == "Category"] <- "Country"
+nodes15 <- merge(nodes15, num_immigrants_15, by = "Country") # join two dfs tgt
+nodes15
+
+
+
+### 2010
+# show only nodes that appear in the top_100_corridors_10 dataframe
+# get the disctinct country that appear in top_100_corridors_10
+destination10_set <- unique(top_X_corridors_10$Destination)
+origin10_set <- unique(top_X_corridors_10$Origin)
+union10_set <- union(destination10_set, origin10_set) # get the union of both vector
+
+# select rows from the nodes dataframe that contain only length(union10_set) countries
+nodecols10 <- c("Country", "Country", "Region", "UN_Region", "Influenza2010")
+nodes10 <- nodes[nodecols10]
+names(nodes10)[2] <- "Label"  # rename "Country.1" to "Label"
+nodes10 <- nodes10[nodes10$Country %in% union10_set, ]
+
+### create a variable that saves the total number of immigrants to a destination country
+num_immigrants_10 <- aggregate(top_X_corridors_10$flow2010, by = list(Category = top_X_corridors_10$Destination), FUN=sum)
+names(num_immigrants_10)[names(num_immigrants_10) == "x"] <- "Total_New_Immigrants_10"  # change column name
+
+# add new rows
+setdiff10 <- setdiff(origin10_set, destination10_set)
+zero_immigrants_10 <- rep(0, length(setdiff10))
+df_new_10 <- data.frame(Category = setdiff10, Total_New_Immigrants_10 = zero_immigrants_10)
+num_immigrants_10 <- rbind(num_immigrants_10, df_new_10)
+names(num_immigrants_10)[names(num_immigrants_10) == "Category"] <- "Country"
+nodes10 <- merge(nodes10, num_immigrants_10, by = "Country") # join two dfs tgt
+nodes10
+
+
+
+### 2005
+# show only nodes that appear in the top_100_corridors_05 dataframe
+# get the disctinct country that appear in top_100_corridors_05
+destination05_set <- unique(top_X_corridors_05$Destination)
+origin05_set <- unique(top_X_corridors_05$Origin)
+union05_set <- union(destination05_set, origin05_set) # get the union of both vector
+
+# select rows from the nodes dataframe that contain only length(union05_set) countries
+nodecols05 <- c("Country", "Country", "Region", "UN_Region", "Influenza2005")
+nodes05 <- nodes[nodecols05]
+names(nodes05)[2] <- "Label"  # rename "Country.1" to "Label"
+nodes05 <- nodes05[nodes05$Country %in% union05_set, ]
+
+### create a variable that saves the total number of immigrants to a destination country
+num_immigrants_05 <- aggregate(top_X_corridors_05$flow2005, by = list(Category = top_X_corridors_05$Destination), FUN=sum)
+names(num_immigrants_05)[names(num_immigrants_05) == "x"] <- "Total_New_Immigrants_05"  # change column name 
+
+# add new rows
+setdiff05 <- setdiff(origin05_set, destination05_set)
+zero_immigrants_05 <- rep(0, length(setdiff05))
+df_new_05 <- data.frame(Category = setdiff05, Total_New_Immigrants_05 = zero_immigrants_05)
+num_immigrants_05 <- rbind(num_immigrants_05, df_new_05)
+names(num_immigrants_05)[names(num_immigrants_05) == "Category"] <- "Country"
+#num_immigrants_05
+#nrow(num_immigrants_05)
+nodes05 <- merge(nodes05, num_immigrants_05, by = "Country") # join two dfs tgt
+nodes05
+```
+
+### iii) rescale nodes dataframes
+
+```{r q_plot_3_rescale_nodes, echo=FALSE}
+# find out the min and max across all four years' data
+min_TNI_19 <- min(nodes19$Total_New_Immigrants_19)
+min_TNI_15 <- min(nodes15$Total_New_Immigrants_15)
+min_TNI_10 <- min(nodes10$Total_New_Immigrants_10)
+min_TNI_05 <- min(nodes05$Total_New_Immigrants_05)
+min_TNI_all <- min(c(min_TNI_19, min_TNI_15, min_TNI_10, min_TNI_05))
+min_TNI_all
+
+max_TNI_19 <- max(nodes19$Total_New_Immigrants_19)
+max_TNI_15 <- max(nodes15$Total_New_Immigrants_15)
+max_TNI_10 <- max(nodes10$Total_New_Immigrants_10)
+max_TNI_05 <- max(nodes05$Total_New_Immigrants_05)
+max_TNI_all <- max(c(max_TNI_19, max_TNI_15, max_TNI_10, max_TNI_05))
+max_TNI_all
+
+# rescale total new immigrants data
+# 2019
+nodes19$Rescale_TNI2019 <- rescale(x = nodes19$Total_New_Immigrants_19, to = c(4, 26), from = c(min_TNI_all, max_TNI_all), na.rm = TRUE, finite = TRUE)
+# 2015
+nodes15$Rescale_TNI2015 <- rescale(x = nodes15$Total_New_Immigrants_15, to = c(4, 26), from = c(min_TNI_all, max_TNI_all), na.rm = TRUE, finite = TRUE)
+# 2010
+nodes10$Rescale_TNI2010 <- rescale(x = nodes10$Total_New_Immigrants_10, to = c(4, 26), from = c(min_TNI_all, max_TNI_all), na.rm = TRUE, finite = TRUE)
+# 2005
+nodes05$Rescale_TNI2005 <- rescale(x = nodes05$Total_New_Immigrants_05, to = c(4, 26), from = c(min_TNI_all, max_TNI_all), na.rm = TRUE, finite = TRUE)
+```
+
+### iv) rescale links dataframes
+
+```{r q_plot_3_rescale_links, echo=FALSE}
+# find out the min and max across all four years' data
+#links
+min_mf_19 <- min(top_X_corridors_19$flow2019)
+min_mf_15 <- min(top_X_corridors_15$flow2015)
+min_mf_10 <- min(top_X_corridors_10$flow2010)
+min_mf_05 <- min(top_X_corridors_05$flow2005)
+min_all_mf <- min(c(min_mf_19, min_mf_15, min_mf_10, min_mf_05))
+min_all_mf
+
+max_mf_19 <- max(top_X_corridors_19$flow2019)
+max_mf_15 <- max(top_X_corridors_15$flow2015)
+max_mf_10 <- max(top_X_corridors_10$flow2010)
+max_mf_05 <- max(top_X_corridors_05$flow2005)
+max_all_mf <- max(c(max_mf_19, max_mf_15, max_mf_10, max_mf_05))
+max_all_mf
+
+# rescale all migration flow data
+#2019
+top_X_corridors_19$Rescale_MF_19 <- rescale(x = top_X_corridors_19$flow2019, to = c(0.4, 4), from = c(min_all_mf, max_all_mf), na.rm = TRUE, finite = TRUE)
+#2015
+top_X_corridors_15$Rescale_MF_15 <- rescale(x = top_X_corridors_15$flow2015, to = c(0.4, 4), from = c(min_all_mf, max_all_mf), na.rm = TRUE, finite = TRUE)
+#2010
+top_X_corridors_10$Rescale_MF_10 <- rescale(x = top_X_corridors_10$flow2010, to = c(0.4, 4), from = c(min_all_mf, max_all_mf), na.rm = TRUE, finite = TRUE)
+#2005
+top_X_corridors_05$Rescale_MF_05 <- rescale(x = top_X_corridors_05$flow2005, to = c(0.4, 4), from = c(min_all_mf, max_all_mf), na.rm = TRUE, finite = TRUE)
+```
+
+### v) plot 2019
+
+```{r q_plot_3_19, echo=FALSE}
+### Plot from 2005 to 2019
+# set figure size
+par(pin=c(6, 6))
+par(mai=c(0, 0, 0, 0))
+
+net_2019_rescale <- graph_from_data_frame(d = top_X_corridors_19, vertices = nodes19, directed=T) 
+
+# node size (total new immigrants)
+V(net_2019_rescale)$size <- V(net_2019_rescale)$Rescale_TNI2019
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.6)
+my_color <- colrstr[as.numeric(as.factor(V(net_2019_rescale)$UN_Region))]
+V(net_2019_rescale)$color <- my_color
+V(net_2019_rescale)$frame.color <- "white"
+V(net_2019_rescale)$frame.size <- 0.1
+
+# node label
+V(net_2019_rescale)$label.color <- 'black'
+V(net_2019_rescale)$label <- V(net_2019_rescale)$Label
+V(net_2019_rescale)$label.cex = 0.2
+
+# edge width
+E(net_2019_rescale)$width <- E(net_2019_rescale)$Rescale_MF_19
+
+
+# set arrow size
+E(net_2019_rescale)$arrow.size <- 0.1
+E(net_2019_rescale)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1242)
+#set.seed(129)
+
+#png("Figure_top100_2019_fr_time_series.png", width=6, height=6, units='in',res=1000)
+png("Figure_top100_2019_fr_time_series.png", width=6, height=6, units='in',res=1000)
+
+# plot 2019
+#l <- layout_with_fr(net_2019_rescale)
+#l <- norm_coords(l, ymin=-1, ymax=1, xmin=-1, xmax=1)
+
+plot(net_2019_rescale, layout = layout_with_fr)
+#title("2019: Influenza Cases vs Migration Flow Data (Regional Data) (fr)", cex.main = 1)
+
+
+# Add a legend
+legend("topleft", legend=levels(as.factor(V(net_2019_rescale)$UN_Region)), col = colrstr, bty = "n", pch=16, pt.cex = 0.8, cex = .3, text.col = colrs, horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+
+```
+
+### vi) plot 2015
+
+```{r q_plot_3_15, echo=FALSE}
+### Plot from 2005 to 2019
+# set figure size
+par(pin=c(6, 6))
+par(mai=c(0, 0, 0, 0))
+
+net_2015_rescale <- graph_from_data_frame(d = top_X_corridors_15, vertices = nodes15, directed=T) 
+
+# node size (total new immigrants)
+V(net_2015_rescale)$size <- V(net_2015_rescale)$Rescale_TNI2015
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.6)
+my_color <- colrstr[as.numeric(as.factor(V(net_2015_rescale)$UN_Region))]
+V(net_2015_rescale)$color <- my_color
+V(net_2015_rescale)$frame.color <- "white"
+V(net_2015_rescale)$frame.size <- 0.1
+
+# node label
+V(net_2015_rescale)$label.color <- 'black'
+V(net_2015_rescale)$label <- V(net_2015_rescale)$Label
+V(net_2015_rescale)$label.cex = 0.2
+
+# edge width
+E(net_2015_rescale)$width <- E(net_2015_rescale)$Rescale_MF_15
+
+
+# set arrow size
+E(net_2015_rescale)$arrow.size <- 0.1
+E(net_2015_rescale)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1242)
+#set.seed(129)
+
+#png("Figure_top100_2015_fr_time_series.png", width=6, height=6, units='in',res=1000)
+png("Figure_top100_2015_fr_time_series.png", width=6, height=6, units='in',res=1000)
+
+plot(net_2015_rescale, layout = layout_with_fr)
+#title("2019: Influenza Cases vs Migration Flow Data (Regional Data) (fr)", cex.main = 1)
+
+
+# Add a legend
+legend("topleft", legend=levels(as.factor(V(net_2015_rescale)$UN_Region)), col = colrstr, bty = "n", pch=16, pt.cex = 0.8, cex = .3, text.col = colrs, horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+
+```
+
+### vii) plot 2010
+
+```{r q_plot_3_10, echo=FALSE}
+### Plot from 2005 to 2019
+# set figure size
+par(pin=c(6, 6))
+par(mai=c(0, 0, 0, 0))
+
+net_2010_rescale <- graph_from_data_frame(d = top_X_corridors_10, vertices = nodes10, directed=T) 
+
+# node size (total new immigrants)
+V(net_2010_rescale)$size <- V(net_2010_rescale)$Rescale_TNI2010
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.6)
+my_color <- colrstr[as.numeric(as.factor(V(net_2010_rescale)$UN_Region))]
+V(net_2010_rescale)$color <- my_color
+V(net_2010_rescale)$frame.color <- "white"
+V(net_2010_rescale)$frame.size <- 0.1
+
+# node label
+V(net_2010_rescale)$label.color <- 'black'
+V(net_2010_rescale)$label <- V(net_2010_rescale)$Label
+V(net_2010_rescale)$label.cex = 0.2
+
+# edge width
+E(net_2010_rescale)$width <- E(net_2010_rescale)$Rescale_MF_10
+
+
+# set arrow size
+E(net_2010_rescale)$arrow.size <- 0.1
+E(net_2010_rescale)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1242)
+#set.seed(129)
+
+#png("Figure_top100_2010_fr_time_series.png", width=6, height=6, units='in',res=1000)
+png("Figure_top100_2010_fr_time_series.png", width=6, height=6, units='in',res=1000)
+
+plot(net_2010_rescale, layout = layout_with_fr)
+#title("2019: Influenza Cases vs Migration Flow Data (Regional Data) (fr)", cex.main = 1)
+
+
+# Add a legend
+legend("topleft", legend=levels(as.factor(V(net_2010_rescale)$UN_Region)), col = colrstr, bty = "n", pch=16, pt.cex = 0.8, cex = .3, text.col = colrs, horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+
+```
+
+### vii) plot 2005
+
+```{r q_plot_3_05, echo=FALSE}
+### Plot from 2005 to 2019
+# set figure size
+par(pin=c(6, 6))
+par(mai=c(0, 0, 0, 0))
+
+net_2005_rescale <- graph_from_data_frame(d = top_X_corridors_05, vertices = nodes05, directed=T) 
+
+# node size (total new immigrants)
+V(net_2005_rescale)$size <- V(net_2005_rescale)$Rescale_TNI2005
+
+# node color
+library(RColorBrewer)
+colrs  <- brewer.pal(7, "Set2")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.6)
+my_color <- colrstr[as.numeric(as.factor(V(net_2005_rescale)$UN_Region))]
+V(net_2005_rescale)$color <- my_color
+V(net_2005_rescale)$frame.color <- "white"
+V(net_2005_rescale)$frame.size <- 0.1
+
+# node label
+V(net_2005_rescale)$label.color <- 'black'
+V(net_2005_rescale)$label <- V(net_2005_rescale)$Label
+V(net_2005_rescale)$label.cex = 0.2
+
+# edge width
+E(net_2005_rescale)$width <- E(net_2005_rescale)$Rescale_MF_05
+
+
+# set arrow size
+E(net_2005_rescale)$arrow.size <- 0.1
+E(net_2005_rescale)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1242)
+#set.seed(129)
+
+#png("Figure_top100_2005_fr_time_series.png", width=6, height=6, units='in',res=1000)
+png("Figure_top100_2005_fr_time_series.png", width=6, height=6, units='in',res=1000)
+
+plot(net_2005_rescale, layout = layout_with_fr)
+#title("2019: Influenza Cases vs Migration Flow Data (Regional Data) (fr)", cex.main = 1)
+
+
+# Add a legend
+legend("topleft", legend=levels(as.factor(V(net_2005_rescale)$UN_Region)), col = colrstr, bty = "n", pch=16, pt.cex = 0.8, cex = .3, text.col = colrs, horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+
+```
+
+The following section is dedicated to extract statistial data.
+
+```{r q_plot_3_EDA, echo=TRUE}
+# 2019
+E(net_2019_rescale)$weight <- E(net_2019_rescale)$width
+top_ND_19 <- sort(strength(net_2019_rescale, vids = V(net_2019_rescale), mode = "in", loops = TRUE), decreasing = TRUE)
+#top_ND_19
+
+top_MF_19 <- aggregate(top_X_corridors_19$flow2019, by=list(Category=top_X_corridors_19$Destination), FUN=sum)
+top_MF_19_sort <- top_MF_19[order(-top_MF_19$x),]
+top_MF_19_sort
+
+top_MF_19_sum <- sum(top_MF_19_sort$x)
+#top_MF_19_sum
+links_sum <- sum(links$flow2019)
+top_MF_19_sum / links_sum
+
+nrow(nodes19)
+
+# 2015
+top_MF_15 <- aggregate(top_X_corridors_15$flow2015, by=list(Category=top_X_corridors_15$Destination), FUN=sum)
+top_MF_15_sort <- top_MF_15[order(-top_MF_15$x),]
+top_MF_15_sort
+
+top_MF_15_sum <- sum(top_MF_15_sort$x)
+#top_MF_19_sum
+links_sum <- sum(links$flow2015)
+top_MF_15_sum / links_sum
+
+nrow(nodes15)
+
+# 2010
+top_MF_10 <- aggregate(top_X_corridors_10$flow2010, by=list(Category=top_X_corridors_10$Destination), FUN=sum)
+top_MF_10_sort <- top_MF_10[order(-top_MF_10$x),]
+top_MF_10_sort
+
+top_MF_10_sum <- sum(top_MF_10_sort$x)
+#top_MF_19_sum
+links_sum <- sum(links$flow2010)
+top_MF_10_sum / links_sum
+
+nrow(nodes10)
+
+# 2005
+top_MF_05 <- aggregate(top_X_corridors_05$flow2005, by=list(Category=top_X_corridors_05$Destination), FUN=sum)
+top_MF_05_sort <- top_MF_05[order(-top_MF_05$x),]
+top_MF_05_sort
+
+top_MF_05_sum <- sum(top_MF_05_sort$x)
+#top_MF_19_sum
+links_sum <- sum(links$flow2005)
+top_MF_05_sum / links_sum
+
+nrow(nodes05)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+# Plot 2: top X migration corridors & influenza color highlights (world median as threshold)
+
+### i) Plot 2019
+
+```{r q_plot_4_color_variable, echo=TRUE}
+# get the median of the influenza case number
+X_pctl <- quantile(nodes$Influenza2019, c(0.5))
+X_pctl
+# select countries whose influenza case numbers are greater than X_pctl
+top_IC_19 <- nodes19[nodes19$Influenza2019 >= X_pctl, ]$Country
+non_top_IC_19 <- nodes19[nodes19$Influenza2019 < X_pctl, ]$Country
+
+# assign color labels
+nodes19$Node_Color_19 <- "Influenza Cases < World Median Level"
+for (val in top_IC_19){
+  nodes19[nodes19$Country == val,]$Node_Color_19 <- "Influenza Cases >= World Median Level"
+}
+
+# Plot
+### Plot from 2005 to 2019
+# set figure size
+par(pin=c(6, 6))
+par(mai=c(0, 0, 0, 0))
+
+net_2019_color <- graph_from_data_frame(d = top_X_corridors_19, vertices = nodes19, directed=T) 
+
+# node size (total new immigrants)
+V(net_2019_color)$size <- V(net_2019_color)$Rescale_TNI2019
+
+# node color
+colrs  <- c("blue", "red")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.4)
+my_color <- colrstr[as.numeric(as.factor(V(net_2019_color)$Node_Color_19))]
+V(net_2019_color)$color <- my_color
+V(net_2019_color)$frame.color <- "white"
+V(net_2019_color)$frame.size <- 0.1
+
+# node label
+V(net_2019_color)$label.color <- 'black'
+V(net_2019_color)$label <- V(net_2019_color)$Label
+V(net_2019_color)$label.cex = 0.2
+
+# edge width
+E(net_2019_color)$width <- E(net_2019_color)$Rescale_MF_19
+
+
+# set arrow size
+E(net_2019_color)$arrow.size <- 0.1
+E(net_2019_color)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1242)
+#set.seed(129)
+
+#png("Figure_top100_2019_fr_time_series.png", width=6, height=6, units='in',res=1000)
+png("Figure_top100_2019_fr_influenza_highlights_top050.png", width=6, height=6, units='in',res=1000)
+
+# plot 2019
+#l <- layout_with_fr(net_2019_rescale)
+#l <- norm_coords(l, ymin=-1, ymax=1, xmin=-1, xmax=1)
+
+plot(net_2019_color, layout = layout_with_fr)
+#title("2019: Influenza Cases vs Migration Flow Data (Regional Data) (fr)", cex.main = 1)
+
+
+# Add a legend
+legend("topleft", legend=levels(as.factor(V(net_2019_color)$Node_Color_19)), col = colrstr, bty = "n", pch=16, pt.cex = 0.8, cex = .3, text.col = colrstr, horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+```
+
+### ii) Plot 2015
+
+```{r q_plot_4_color_variable_2015, echo=TRUE}
+# get the median of the influenza case number
+X_pctl <- quantile(nodes$Influenza2015, c(0.5))
+X_pctl
+# select countries whose influenza case numbers are greater than X_pctl
+top_IC_15 <- nodes15[nodes15$Influenza2015 >= X_pctl, ]$Country
+non_top_IC_15 <- nodes15[nodes15$Influenza2015 < X_pctl, ]$Country
+
+# assign color labels
+nodes15$Node_Color_15 <- "Influenza Cases < World Median Level"
+for (val in top_IC_15){
+  nodes15[nodes15$Country == val,]$Node_Color_15 <- "Influenza Cases >= World Median Level"
+}
+
+# Plot
+### Plot from 2005 to 2019
+# set figure size
+par(pin=c(6, 6))
+par(mai=c(0, 0, 0, 0))
+
+net_2015_color <- graph_from_data_frame(d = top_X_corridors_15, vertices = nodes15, directed=T) 
+
+# node size (total new immigrants)
+V(net_2015_color)$size <- V(net_2015_color)$Rescale_TNI2015
+
+# node color
+colrs  <- c("blue", "red")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.4)
+my_color <- colrstr[as.numeric(as.factor(V(net_2015_color)$Node_Color_15))]
+V(net_2015_color)$color <- my_color
+V(net_2015_color)$frame.color <- "white"
+V(net_2015_color)$frame.size <- 0.1
+
+# node label
+V(net_2015_color)$label.color <- 'black'
+V(net_2015_color)$label <- V(net_2015_color)$Label
+V(net_2015_color)$label.cex = 0.2
+
+# edge width
+E(net_2015_color)$width <- E(net_2015_color)$Rescale_MF_15
+
+
+# set arrow size
+E(net_2015_color)$arrow.size <- 0.1
+E(net_2015_color)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1242)
+#set.seed(129)
+
+#png("Figure_top100_2019_fr_time_series.png", width=6, height=6, units='in',res=1000)
+png("Figure_top100_2015_fr_influenza_highlights_top050.png", width=6, height=6, units='in',res=1000)
+
+# plot 2019
+#l <- layout_with_fr(net_2019_rescale)
+#l <- norm_coords(l, ymin=-1, ymax=1, xmin=-1, xmax=1)
+
+plot(net_2015_color, layout = layout_with_fr)
+#title("2019: Influenza Cases vs Migration Flow Data (Regional Data) (fr)", cex.main = 1)
+
+
+# Add a legend
+legend("topright", legend=levels(as.factor(V(net_2015_color)$Node_Color_15)), col = colrstr, bty = "n", pch=16, pt.cex = 0.8, cex = .3, text.col = colrstr, horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+```
+
+### iii) Plot 2010
+
+```{r q_plot_4_color_variable_2010, echo=TRUE}
+# get the median of the influenza case number
+X_pctl <- quantile(nodes$Influenza2010, c(0.5))
+X_pctl
+# select countries whose influenza case numbers are greater than X_pctl
+top_IC_10 <- nodes10[nodes10$Influenza2010 >= X_pctl, ]$Country
+non_top_IC_10 <- nodes10[nodes10$Influenza2010 < X_pctl, ]$Country
+
+# assign color labels
+nodes10$Node_Color_10 <- "Influenza Cases < World Median Level"
+for (val in top_IC_10){
+  nodes10[nodes10$Country == val,]$Node_Color_10 <- "Influenza Cases >= World Median Level"
+}
+
+# Plot
+### Plot from 2005 to 2019
+# set figure size
+par(pin=c(6, 6))
+par(mai=c(0, 0, 0, 0))
+
+net_2010_color <- graph_from_data_frame(d = top_X_corridors_10, vertices = nodes10, directed=T) 
+
+# node size (total new immigrants)
+V(net_2010_color)$size <- V(net_2010_color)$Rescale_TNI2010
+
+# node color
+colrs  <- c("red", "blue")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.4)
+my_color <- colrstr[as.numeric(as.factor(V(net_2010_color)$Node_Color_10))]
+V(net_2010_color)$color <- my_color
+V(net_2010_color)$frame.color <- "white"
+V(net_2010_color)$frame.size <- 0.1
+
+# node label
+V(net_2010_color)$label.color <- 'black'
+V(net_2010_color)$label <- V(net_2010_color)$Label
+V(net_2010_color)$label.cex = 0.2
+
+# edge width
+E(net_2010_color)$width <- E(net_2010_color)$Rescale_MF_10
+
+
+# set arrow size
+E(net_2010_color)$arrow.size <- 0.1
+E(net_2010_color)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1242)
+#set.seed(129)
+
+#png("Figure_top100_2019_fr_time_series.png", width=6, height=6, units='in',res=1000)
+png("Figure_top100_2010_fr_influenza_highlights_top050.png", width=6, height=6, units='in',res=1000)
+
+# plot 2019
+#l <- layout_with_fr(net_2019_rescale)
+#l <- norm_coords(l, ymin=-1, ymax=1, xmin=-1, xmax=1)
+
+plot(net_2010_color, layout = layout_with_fr)
+#title("2019: Influenza Cases vs Migration Flow Data (Regional Data) (fr)", cex.main = 1)
+
+
+# Add a legend
+legend("topright", legend=levels(as.factor(V(net_2010_color)$Node_Color_10)), col = colrstr, bty = "n", pch=16, pt.cex = 0.8, cex = .3, text.col = colrstr, horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+```
+
+### iv) Plot 2005
+
+```{r q_plot_4_color_variable_2005, echo=TRUE}
+# get the median of the influenza case number
+X_pctl <- quantile(nodes$Influenza2005, c(0.5))
+X_pctl
+# select countries whose influenza case numbers are greater than X_pctl
+top_IC_05 <- nodes05[nodes05$Influenza2005 >= X_pctl, ]$Country
+non_top_IC_05 <- nodes05[nodes05$Influenza2005 < X_pctl, ]$Country
+
+# assign color labels
+nodes05$Node_Color_05 <- "Influenza Cases < World Median Level"
+for (val in top_IC_05){
+  nodes05[nodes05$Country == val,]$Node_Color_05 <- "Influenza Cases >= World Median Level"
+}
+
+# Plot
+### Plot from 2005 to 2019
+# set figure size
+par(pin=c(6, 6))
+par(mai=c(0, 0, 0, 0))
+
+net_2005_color <- graph_from_data_frame(d = top_X_corridors_05, vertices = nodes05, directed=T) 
+
+# node size (total new immigrants)
+V(net_2005_color)$size <- V(net_2005_color)$Rescale_TNI2005
+
+# node color
+colrs  <- c("red", "blue")
+colrstr <- grDevices::adjustcolor(colrs, alpha=0.4)
+my_color <- colrstr[as.numeric(as.factor(V(net_2005_color)$Node_Color_05))]
+V(net_2005_color)$color <- my_color
+V(net_2005_color)$frame.color <- "white"
+V(net_2005_color)$frame.size <- 0.1
+
+# node label
+V(net_2005_color)$label.color <- 'black'
+V(net_2005_color)$label <- V(net_2005_color)$Label
+V(net_2005_color)$label.cex = 0.2
+
+# edge width
+E(net_2005_color)$width <- E(net_2005_color)$Rescale_MF_05
+
+
+# set arrow size
+E(net_2005_color)$arrow.size <- 0.1
+E(net_2005_color)$arrow.mode <- 2 # 2 for forward arrow from Origin to Destination (1 for backward) 
+
+# set seed
+set.seed(1242)
+#set.seed(129)
+
+#png("Figure_top100_2019_fr_time_series.png", width=6, height=6, units='in',res=1000)
+png("Figure_top100_2005_fr_influenza_highlights_top050.png", width=6, height=6, units='in',res=1000)
+
+# plot 2019
+#l <- layout_with_fr(net_2019_rescale)
+#l <- norm_coords(l, ymin=-1, ymax=1, xmin=-1, xmax=1)
+
+plot(net_2005_color, layout = layout_with_fr)
+#title("2019: Influenza Cases vs Migration Flow Data (Regional Data) (fr)", cex.main = 1)
+
+
+# Add a legend
+legend("topright", legend=levels(as.factor(V(net_2005_color)$Node_Color_05)), col = colrstr, bty = "n", pch=16, pt.cex = 0.8, cex = .3, text.col = colrstr, horiz = FALSE, inset = c(0.1, 0.1))
+
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
