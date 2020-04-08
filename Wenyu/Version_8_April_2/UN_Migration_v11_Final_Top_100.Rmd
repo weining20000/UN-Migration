@@ -822,7 +822,10 @@ dev.off()
 # Try out methods online G(N,L)
 numb_vertices
 numb_edges
-g <- erdos.renyi.game(74, 100, type = "gnm", directed = TRUE)
+
+for (i in 1:1000){
+  g <- erdos.renyi.game(74, 100, type = "gnm", directed = TRUE)
+}
 plot(g, vertex.label= NA, edge.arrow.size=0.02,vertex.size = 0.5, xlab = "Random Network: G(N,L) model")
 ```
 
