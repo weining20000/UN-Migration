@@ -806,22 +806,21 @@ dev.off()
 
 ## Generate a Null Model
 ```{r}
-# Patrick's group null model
-#get number of vertices, edges, and p(edge) for random networks
+# Generate a random network
 
-   numb_edges <- length(E(net_2019_color))
+numb_edges <- length(E(net_2019_color))
    
-   numb_vertices <-length(V(net_2019_color))
+numb_nodes <-length(V(net_2019_color))
    
-   p_edges <- (numb_edges/(numb_vertices*(numb_vertices-1)))
+   
 ```
-
-### Patrick's code won't work
 
 ```{r}
 # Try out methods online G(N,L)
-numb_vertices
+numb_nodes
 numb_edges
+
+set.seed(1234)
 
 for (i in 1:1000){
   g <- erdos.renyi.game(74, 100, type = "gnm", directed = TRUE)
@@ -856,14 +855,14 @@ plot(g, vertex.color=vcol, edge.color=ecol, edge.arrow.mode=0)
 # Node degrees
 # 'degree' has a mode of 'in' for in-degree, 'out' for out-degree,
 # and 'all' or 'total' for total degree. 
-deg <- degree(g, mode="all")
+deg <- degree(g, mode="in")
 plot(g, vertex.size=deg*3)
-hist(deg, breaks=1:vcount(g)-1, main="Histogram of node degree")
+hist(deg, breaks=1:vcount(g)-1, main="Histogram of Random Network Node Degree", xlim = c(0, 20))
 
 # Degree distribution
-deg.dist <- degree_distribution(g, cumulative=T, mode="all")
+deg.dist <- degree_distribution(g, cumulative=T, mode="in")
 plot( x=0:max(deg), y=1-deg.dist, pch=19, cex=1.2, col="orange", 
-      xlab="Degree", ylab="Cumulative Frequency")
+      xlab="Degree", ylab="Cumulative Frequency", main = "Random Network Degree Distribution")
 
 ```
 
@@ -877,16 +876,16 @@ plot( x=0:max(deg), y=1-deg.dist, pch=19, cex=1.2, col="orange",
 
 # Degree (number of ties)
 #USE
-mean(degree(g, mode="all"))
+mean(degree(g, mode="in"))
 
 #USE
-mean(centr_degree(g, mode="all")$res)
+mean(centr_degree(g, mode="in")$res)
 
 # Closeness (centrality based on distance to others in the graph)
 # Inverse of the node's average geodesic distance to others in the network
 
 #USE
-mean(closeness(g, mode="all", weights=NA)) 
+mean(closeness(g, mode="in", weights=NA))
 #centr_clo(g, mode="all", normalized=T) 
 
 # Eigenvector (centrality proportional to the sum of connection centralities)
@@ -897,11 +896,11 @@ mean(closeness(g, mode="all", weights=NA))
 # Betweenness (centrality based on a broker position connecting others)
 # (Number of geodesics that pass through the node or the edge)
 #USE
-mean(betweenness(g, directed=T))
+betweenness(g, directed=T)
 
 
 #edge_betweenness(g, directed=T, weights=NA)
-#centr_betw(g, directed=T, normalized=T)
+centr_betw(g, directed=T)
 
 
 ```
@@ -916,29 +915,51 @@ mean(betweenness(g, directed=T))
 
 # Degree (number of ties)
 #USE
-mean(degree(net_2019_color, mode="all"))
+#top_IC_19
+deg_19 <- degree(net_2019_color, mode="in")
+deg_19_mean <- mean(deg_19)
+deg_19_big_mean <- mean(deg_19[top_IC_19])
+deg_19_small_mean <- mean(deg_19[non_top_IC_19])
 
+#difference
+deg_19_diff <- deg_19_big_mean - deg_19_small_mean
+deg_19_diff
+deg_19_mean
+```
+
+```{r}
 #USE
-mean(centr_degree(net_2019_color, mode="all")$res)
+#centr_degree(net_2019_color, mode="in")
 
 # Closeness (centrality based on distance to others in the graph)
 # Inverse of the node's average geodesic distance to others in the network
 #USE
 mean(closeness(net_2019_color, mode="all", weights=NA))
-#centr_clo(net_2019_color, mode="all", normalized=T) 
+centr_clo(net_2019_color, mode="in") 
 
 # Eigenvector (centrality proportional to the sum of connection centralities)
 # Values of the first eigenvector of the graph adjacency matrix
 #eigen_centrality(net_2019_color, directed=T, weights=NA)
 #centr_eigen(net_2019_color, directed=T, normalized=T) 
+```
 
+```{r}
 # Betweenness (centrality based on a broker position connecting others)
 # (Number of geodesics that pass through the node or the edge)
 #USE
-mean(betweenness(net_2019_color, directed=T))
+BC_19 <- betweenness(net_2019_color, directed=T)
+BC_19_mean <- mean(BC_19)
+BC_19_big_mean <- mean(BC_19[top_IC_19])
+BC_19_small_mean <- mean(BC_19[non_top_IC_19])
+
+#Difference
+BC_19_diff <- BC_19_big_mean - BC_19_small_mean
+BC_19_diff
+BC_19_mean
+BC_19[non_top_IC_19]
 
 #edge_betweenness(net_2019_color, directed=T, weights=NA)
-#centr_betw(net_2019_color, directed=T, normalized=T)
+#centr_betw(net_2019_color, directed=T)
 
 
 ```
@@ -975,13 +996,73 @@ hist(deg, breaks=1:vcount(net_2019_color)-1, main="Histogram of node degree")
 # Degree distribution
 deg.dist <- degree_distribution(net_2019_color, cumulative=T, mode="all")
 plot( x=0:max(deg), y=1-deg.dist, pch=19, cex=1.2, col="orange", 
-      xlab="Degree", ylab="Cumulative Frequency")
+      xlab="Degree", ylab="Cumulative Frequency", main = "2019 Network Degree Distribution")
 
 ```
 
+## For Final Presentation
+### Study in-degree & betweenness
+```{r}
+# Null Model
+random_g_matric <- data.frame()
 
+set.seed(1242)
 
+for (i in 1:1000) {
+  g <- sample_gnm(n = numb_nodes, m = numb_edges, directed = TRUE, loops = FALSE)
+  #Betweenness Centrality
+  random_betweenness_centrality <- betweenness(g, directed = TRUE)
+  random_mean_BC <- mean(random_betweenness_centrality)
+  #set first 59 nodes as big influnenza countries
+  random_mean_big_BC <- mean(random_betweenness_centrality[1:59])
+  #now small influenza countries
+  random_mean_small_BC <- mean(random_betweenness_centrality[60:74])
+  #see the difference
+  random_diff <- random_mean_big_BC - random_mean_small_BC
+  
+  # in-node degree
+  random_deg <- degree(g, mode="in")
+  random_mean_deg <- mean(random_deg)
+  random_mean_big_deg <- mean(random_deg[1:59])
+  random_mean_small_deg <- mean(random_deg[60:74])
+  #difference
+  random_diff_deg <- random_mean_big_deg - random_mean_small_deg
+  
+  # Save results
+  random_matric <- data.frame(random_mean_BC,
+                              random_mean_big_BC,
+                              random_mean_small_BC,
+                              random_diff,
+                              random_mean_deg,
+                              random_mean_big_deg,
+                              random_mean_small_deg,
+                              random_diff_deg)
+  
+  # Combine 
+  random_g_matric <- rbind(random_g_matric, random_matric)
+}
+random_g_matric
+```
 
+### Make historgrams
+```{r}
+#Betweenness
+hist(random_g_matric$random_diff, breaks = 25, main = "Difference of Betweenness Centrality between \n Big Influenza-case Countries and Small Influenza-case Countries", xlab = "Betweenness Centrality", labels = TRUE, ylim = c(0, 155), col = "grey")
+abline(v = BC_19_diff, col = "red")
+legend("left", "2019 Network", fill = "red")
+```
+
+```{r}
+# In-node Degree
+hist(random_g_matric$random_diff_deg, breaks = 25, main = "Difference of In-node Degree between \n Big Influenza-case Countries and Small Influenza-case Countries", xlab = "In-Node Degree", labels = TRUE, ylim = c(0, 195), col = "grey")
+abline(v = deg_19_diff, col = "red")
+legend("left", "2019 Network", fill = "red")
+```
+
+```{r}
+top10inf <- nodes19 %>% select(Country, Influenza2019) %>% arrange(desc(Influenza2019))
+top10inf
+```
 
 
 
